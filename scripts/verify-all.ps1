@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [switch] $E2E,
-    [switch] $NoE2E
+    [switch] $NoE2E,
+    # Hardware-free gateway E2E (MySQL + backend + smart-insole-ble-gateway CLI required). Default: skip.
+    [switch] $GatewayE2E
 )
 
 $ErrorActionPreference = 'Stop'
@@ -126,6 +128,14 @@ try {
         }
     } else {
         Write-Host '[SKIP] Optional API E2E smoke is disabled. Use -E2E or RUN_E2E=1 to enable it.'
+    }
+    $RunGatewayE2E = $GatewayE2E -or ($env:RUN_GATEWAY_E2E -match '^(1|true|yes|on)$')
+    if ($RunGatewayE2E) {
+        Invoke-Checked 'optional gateway mock E2E' {
+            & $PythonExecutable @PythonPrefix (Join-Path $ScriptDirectory 'e2e_gateway_mock.py')
+        }
+    } else {
+        Write-Host '[SKIP] Optional gateway mock E2E is disabled. Use -GatewayE2E or RUN_GATEWAY_E2E=1 (needs MySQL, backend and the gateway CLI).'
     }
     Write-Host '[PASS] All required verification stages completed.'
     exit 0

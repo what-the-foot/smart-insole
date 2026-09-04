@@ -30,6 +30,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPOSITORY_ROOT = SCRIPT_DIR.parent
 REALTIME_SCHEMA_PATH = REPOSITORY_ROOT / "contracts" / "realtime-message.schema.json"
 OPENAPI_PATH = REPOSITORY_ROOT / "contracts" / "openapi.yaml"
+ADC_MAX = 4095
+ALGORITHM_VERSION = "rule-v1.2.0"
 
 
 @dataclass(frozen=True)
@@ -374,7 +376,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--sensor-layout-version",
-        help="override the seeded layout; defaults to layout-v1 for 8 sensors and layout-v1-6 for 6",
+        help="override the seeded layout; defaults to layout-s01s08-v1 for 8 sensors (no active 6-sensor seed)",
     )
     parser.add_argument("--result-timeout-seconds", type=positive_float, default=30.0)
     parser.add_argument("--poll-interval-seconds", type=positive_float, default=0.5)
@@ -481,10 +483,12 @@ def required_uuid(body: dict[str, Any], field: str, label: str) -> str:
 
 
 def default_layout_version(sensor_count: int) -> str:
-    if sensor_count == 6:
-        return "layout-v1-6"
     if sensor_count == 8:
-        return "layout-v1"
+        return "layout-s01s08-v1"
+    if sensor_count == 6:
+        raise RuntimeError(
+            "no active 6-sensor layout is seeded (layout-v1-6 is read-only); pass --sensor-layout-version"
+        )
     raise RuntimeError(f"no seeded layout for {sensor_count} sensors")
 
 
@@ -525,7 +529,7 @@ def create_next_frame(
     )
     values = list(source["sensorValues"])
     if values:
-        values[0] = values[0] + 1 if values[0] < 65535 else values[0] - 1
+        values[0] = values[0] + 1 if values[0] < ADC_MAX else values[0] - 1
     return {
         "deviceId": device_id,
         "footSide": side,
@@ -716,14 +720,21 @@ def validate_analysis_result(result: dict[str, Any]) -> None:
             for error in errors[:5]
         )
         raise RuntimeError(f"analysis result violates OpenAPI schema: {rendered}")
-    if result.get("algorithmVersion") != "rule-v1.1.0":
+    if result.get("algorithmVersion") != ALGORITHM_VERSION:
         raise RuntimeError(
-            f"analysis result version={result.get('algorithmVersion')!r}, expected rule-v1.1.0"
+            f"analysis result version={result.get('algorithmVersion')!r}, expected {ALGORITHM_VERSION}"
         )
+    summary = result.get("observationSummary")
+    if not isinstance(summary, list) or len(summary) != 6:
+        raise RuntimeError("rule-v1.2.0 result lacks the six-entry observationSummary")
+    allowed_codes = {item.get("code") for item in summary if isinstance(item, dict)}
+    for pattern in result.get("patterns", []):
+        if not isinstance(pattern, dict) or pattern.get("code") not in allowed_codes:
+            raise RuntimeError("result patterns must be a subset of the observationSummary codes")
     gait = result.get("gaitSummary")
     distribution = result.get("pressureDistribution")
     if not isinstance(gait, dict) or not isinstance(gait.get("validStepCount"), int):
-        raise RuntimeError("rule-v1.1.0 result lacks a valid step count")
+        raise RuntimeError(f"{ALGORITHM_VERSION} result lacks a valid step count")
     required_metrics = (
         "leftMidfootRatio",
         "rightMidfootRatio",
@@ -735,7 +746,7 @@ def validate_analysis_result(result: dict[str, Any]) -> None:
         "rightMeanCoP",
     )
     if not isinstance(distribution, dict) or any(distribution.get(key) is None for key in required_metrics):
-        raise RuntimeError("rule-v1.1.0 normal fixture result lacks expanded pressure metrics")
+        raise RuntimeError(f"{ALGORITHM_VERSION} normal fixture result lacks expanded pressure metrics")
 
 
 def main() -> int:
@@ -818,6 +829,7 @@ def main() -> int:
                     "leftDeviceId": left_id,
                     "rightDeviceId": right_id,
                     "sampleRateHz": 100,
+                    "sourceType": "SIMULATED",
                     "memo": f"Synthetic API smoke {run_id}",
                 },
                 headers=bearer(token),
@@ -826,6 +838,8 @@ def main() -> int:
             "create session",
         )
         session_id = required_uuid(session, "sessionId", "create session")
+        if session.get("sourceType") != "SIMULATED" or session.get("adcMax") != ADC_MAX:
+            raise RuntimeError("session response must echo sourceType SIMULATED and adcMax 4095")
 
         checked(
             call(
@@ -1044,7 +1058,7 @@ def main() -> int:
         if result_body.get("status") != "COMPLETED" or not result_body.get("algorithmVersion"):
             raise RuntimeError("completed result lacks status COMPLETED or algorithmVersion")
         validate_analysis_result(result_body)
-        print("[PASS] analysis result matches OpenAPI and rule-v1.1.0 feature contract")
+        print(f"[PASS] analysis result matches OpenAPI and {ALGORITHM_VERSION} feature contract")
         disclaimer = result_body.get("disclaimer")
         if not isinstance(disclaimer, str) or not disclaimer.strip():
             raise RuntimeError("completed result lacks disclaimer")

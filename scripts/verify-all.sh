@@ -4,18 +4,22 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPOSITORY_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 RUN_E2E_VALUE=${RUN_E2E:-0}
+RUN_GATEWAY_E2E_VALUE=${RUN_GATEWAY_E2E:-0}
 
-if [ "${1:-}" = "--e2e" ]; then
-  RUN_E2E_VALUE=1
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --e2e) RUN_E2E_VALUE=1 ;;
+    --no-e2e) RUN_E2E_VALUE=0 ;;
+    # Hardware-free gateway E2E (MySQL + backend + smart-insole-ble-gateway CLI required). Default: skip.
+    --gateway-e2e) RUN_GATEWAY_E2E_VALUE=1 ;;
+    --no-gateway-e2e) RUN_GATEWAY_E2E_VALUE=0 ;;
+    *)
+      echo "Usage: $0 [--e2e|--no-e2e] [--gateway-e2e|--no-gateway-e2e]" >&2
+      exit 2
+      ;;
+  esac
   shift
-elif [ "${1:-}" = "--no-e2e" ]; then
-  RUN_E2E_VALUE=0
-  shift
-fi
-if [ "$#" -ne 0 ]; then
-  echo "Usage: $0 [--e2e|--no-e2e]" >&2
-  exit 2
-fi
+done
 
 if command -v python3 >/dev/null 2>&1; then
   PYTHON_BIN=python3
@@ -102,6 +106,15 @@ case "$RUN_E2E_VALUE" in
     ;;
   *)
     echo "[SKIP] Optional API E2E smoke is disabled. Use --e2e or RUN_E2E=1 to enable it."
+    ;;
+esac
+
+case "$RUN_GATEWAY_E2E_VALUE" in
+  1|true|TRUE|yes|YES|on|ON)
+    run_step "optional gateway mock E2E" "$PYTHON_BIN" "$SCRIPT_DIR/e2e_gateway_mock.py"
+    ;;
+  *)
+    echo "[SKIP] Optional gateway mock E2E is disabled. Use --gateway-e2e or RUN_GATEWAY_E2E=1 (needs MySQL, backend and the gateway CLI)."
     ;;
 esac
 

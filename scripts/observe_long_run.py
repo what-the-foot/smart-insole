@@ -17,6 +17,8 @@ from typing import Any
 
 from http_tools import describe_error, join_url, request_json
 
+ADC_MAX = 4095  # 12-bit RAW ADC scale; 4095 is the session adcMax
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
@@ -67,7 +69,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--receiver-id", default="LONG-RUN-SIMULATED")
     parser.add_argument("--duration-seconds", type=positive_float, default=60.0)
     parser.add_argument("--batch-ms", type=bounded_batch_ms, default=100)
-    parser.add_argument("--sample-rate-hz", type=int, choices=[100], default=100)
+    parser.add_argument("--sample-rate-hz", type=int, choices=[50, 100], default=100,
+                        help="frames per second per foot; must equal the session sampleRateHz")
     parser.add_argument("--sensor-count", type=int, choices=[6, 8], default=8)
     parser.add_argument("--seed", type=int, default=20260902)
     parser.add_argument("--start-sequence", type=nonnegative_integer, default=0)
@@ -97,7 +100,7 @@ def sensor_values(
     for weight in weights:
         jitter = random_source.randint(-12, 12)
         value = round(24 + contact_wave * 900 * weight + jitter)
-        values.append(max(0, min(65535, value)))
+        values.append(max(0, min(ADC_MAX, value)))
     return values
 
 
