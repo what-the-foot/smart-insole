@@ -31,7 +31,7 @@ describe('LiveMeasurementPage', () => {
         displayName: '왼발 인솔',
         footSide: 'LEFT',
         sensorCount: 8,
-        sensorLayoutVersion: 'layout-v1',
+        sensorLayoutVersion: 'layout-s01s08-v1',
         activeCalibrationVersion: 'identity-v1',
         firmwareVersion: '0.1.0',
         adcMax: 4095,
@@ -44,7 +44,7 @@ describe('LiveMeasurementPage', () => {
         displayName: '오른발 인솔',
         footSide: 'RIGHT',
         sensorCount: 8,
-        sensorLayoutVersion: 'layout-v1',
+        sensorLayoutVersion: 'layout-s01s08-v1',
         activeCalibrationVersion: 'identity-v1',
         firmwareVersion: '0.1.0',
         adcMax: 4095,
@@ -53,7 +53,7 @@ describe('LiveMeasurementPage', () => {
       },
     ]);
     vi.spyOn(deviceApi, 'getLayout').mockResolvedValue({
-      version: 'layout-v1',
+      version: 'layout-s01s08-v1',
       sensorCount: 8,
       points: Array.from({ length: 8 }, (_unused, index) => ({
         index,

@@ -1,5 +1,6 @@
 import type {
   ContactState,
+  DeviceResponse,
   DeviceStatus,
   MeasurementStatus,
   QualityLevel,
@@ -19,6 +20,16 @@ export const deviceStatusLabels: Record<DeviceStatus, string> = {
   INACTIVE: '비활성',
   DISCONNECTED: '연결 끊김',
   CALIBRATION_REQUIRED: '보정 필요',
+};
+
+// Status battery_pct 255(미보정/미측정)는 수신기가 null로 보낸다. heartbeat 전이면 필드 자체가 없다.
+export const batteryLabel = (
+  device: Pick<DeviceResponse, 'lastBatteryPercent' | 'lastBatteryMv'>,
+): string => {
+  const percent = device.lastBatteryPercent ?? null;
+  const millivolts = device.lastBatteryMv ?? null;
+  const percentText = percent === null ? '미보정' : `${Math.round(percent)}%`;
+  return millivolts === null ? percentText : `${percentText} · ${millivolts} mV`;
 };
 
 export const qualityLabels: Record<QualityLevel, string> = {

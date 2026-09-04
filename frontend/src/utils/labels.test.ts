@@ -1,4 +1,15 @@
-import { qualityFlagLabel } from './labels';
+import { batteryLabel, qualityFlagLabel } from './labels';
+
+describe('batteryLabel', () => {
+  it.each([
+    ['heartbeat 전', {}, '미보정'],
+    ['미보정 255→null', { lastBatteryPercent: null, lastBatteryMv: 3900 }, '미보정 · 3900 mV'],
+    ['퍼센트와 mV', { lastBatteryPercent: 80, lastBatteryMv: 3900 }, '80% · 3900 mV'],
+    ['퍼센트만', { lastBatteryPercent: 47.6, lastBatteryMv: null }, '48%'],
+  ])('%s 배터리를 표시한다', (_case, device, expected) => {
+    expect(batteryLabel(device)).toBe(expected);
+  });
+});
 
 describe('qualityFlagLabel', () => {
   it.each([
