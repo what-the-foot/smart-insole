@@ -1,17 +1,26 @@
 import { useState, type SyntheticEvent } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
+import { SIMULATION_SESSION_OPTION_ENABLED } from '../api/config';
 import { useDevices } from '../api/queries';
 import { measurementApi } from '../api/services';
+import type { SampleRateHz } from '../api/types';
 import { FootDeviceSelector } from '../components/FootDeviceSelector';
 import { Icon } from '../components/Icon';
 import { ErrorPanel, PageHeader, Spinner, StatePanel } from '../components/StatusUi';
+import {
+  DEFAULT_SAMPLE_RATE_HZ,
+  SAMPLE_RATE_OPTIONS,
+  sampleRateLabels,
+} from '../features/measurement/sampleRates';
 
 export function NewMeasurementPage() {
   const devices = useDevices();
   const navigate = useNavigate();
   const [leftDeviceId, setLeftDeviceId] = useState('');
   const [rightDeviceId, setRightDeviceId] = useState('');
+  const [sampleRateHz, setSampleRateHz] = useState<SampleRateHz>(DEFAULT_SAMPLE_RATE_HZ);
+  const [simulated, setSimulated] = useState(false);
   const [memo, setMemo] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -20,8 +29,9 @@ export function NewMeasurementPage() {
       measurementApi.create({
         leftDeviceId,
         rightDeviceId,
-        sampleRateHz: 100,
-        sourceType: 'DEVICE',
+        sampleRateHz,
+        // 계약 기본값은 DEVICE. 시뮬레이터(개발용 체크박스)만 SIMULATED를 명시한다(DEC-028).
+        sourceType: SIMULATION_SESSION_OPTION_ENABLED && simulated ? 'SIMULATED' : 'DEVICE',
         memo: memo.trim() || null,
       }),
     onSuccess: (session) => void navigate(`/measurements/${session.sessionId}/live`),
@@ -61,6 +71,29 @@ export function NewMeasurementPage() {
       {devices.data?.length ? (
         <form className="measurement-form" onSubmit={handleSubmit}>
           <div className="bilateral-selectors"><FootDeviceSelector devices={devices.data} onChange={setLeftDeviceId} selectedId={leftDeviceId} side="LEFT" /><FootDeviceSelector devices={devices.data} onChange={setRightDeviceId} selectedId={rightDeviceId} side="RIGHT" /></div>
+          <section className="content-card setup-details" aria-labelledby="sample-rate-title">
+            <div><p className="eyebrow">SAMPLE RATE</p><h2 id="sample-rate-title">전송률</h2><p className="muted">세션에 저장되는 sampleRateHz는 수신기 전송률의 단일 기준입니다. 실기기 기본값은 50Hz입니다.</p></div>
+            <div>
+              <fieldset className="sample-rate-fieldset">
+                <legend className="sr-only">전송률 선택</legend>
+                <div className="selector-options">
+                  {SAMPLE_RATE_OPTIONS.map((option) => (
+                    <label className={`selector-option${sampleRateHz === option ? ' selector-option--selected' : ''}`} key={option}>
+                      <input checked={sampleRateHz === option} name="sampleRateHz" onChange={() => setSampleRateHz(option)} type="radio" value={option} />
+                      <span><strong>{sampleRateLabels[option].title}</strong><small>{sampleRateLabels[option].description}</small></span>
+                      <Icon name={sampleRateHz === option ? 'check' : 'arrow'} />
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              {SIMULATION_SESSION_OPTION_ENABLED ? (
+                <label className="checkbox-field">
+                  <input checked={simulated} name="simulated" onChange={(event) => setSimulated(event.target.checked)} type="checkbox" />
+                  <span><strong>시뮬레이션 세션</strong><small>개발 모드 전용. sourceType을 SIMULATED로 보내 mock receiver·E2E 데이터를 실기기 기록과 구분합니다.</small></span>
+                </label>
+              ) : null}
+            </div>
+          </section>
           <section className="content-card setup-details" aria-labelledby="measurement-note-title">
             <div><p className="eyebrow">OPTIONAL NOTE</p><h2 id="measurement-note-title">측정 메모</h2><p className="muted">환경이나 목적을 간단히 적어 두면 기록을 찾기 쉬워요.</p></div>
             <label className="field"><span className="sr-only">측정 메모</span><textarea maxLength={500} onChange={(event) => setMemo(event.target.value)} placeholder="예: 실내 평지에서 편안한 속도로 보행" rows={3} value={memo} /><small>{memo.length}/500</small></label>

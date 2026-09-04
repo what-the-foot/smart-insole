@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { deviceApi, measurementApi } from '../api/services';
-import type { DeviceResponse } from '../api/types';
+import type { DeviceResponse, MeasurementSessionResponse } from '../api/types';
 import { NewMeasurementPage } from './NewMeasurementPage';
 
 const devices: DeviceResponse[] = [
@@ -35,34 +35,39 @@ const devices: DeviceResponse[] = [
   },
 ];
 
+const createdSession: MeasurementSessionResponse = {
+  sessionId: '5803f871-9fca-4a7f-a2c7-9b567a92a6cf',
+  status: 'CREATED',
+  leftDeviceId: 'b4b96290-ad73-42d9-ae21-1446f1258861',
+  rightDeviceId: '64eb539f-4b48-44f6-bb30-d26861463ca6',
+  sampleRateHz: 50,
+  sourceType: 'DEVICE',
+  adcMax: 4095,
+  memo: null,
+  createdAt: '2026-09-02T07:00:00Z',
+};
+
+const renderPage = () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/measurements/new']}>
+        <Routes>
+          <Route element={<NewMeasurementPage />} path="/measurements/new" />
+          <Route element={<h1>기존 세션 준비 화면</h1>} path="/measurements/:sessionId/live" />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+};
+
 describe('NewMeasurementPage', () => {
   it('세션은 한 번만 생성하고 같은 ID의 live 준비 화면으로 이동한다', async () => {
     const user = userEvent.setup();
     vi.spyOn(deviceApi, 'list').mockResolvedValue(devices);
-    const create = vi.spyOn(measurementApi, 'create').mockResolvedValue({
-      sessionId: '5803f871-9fca-4a7f-a2c7-9b567a92a6cf',
-      status: 'CREATED',
-      leftDeviceId: 'b4b96290-ad73-42d9-ae21-1446f1258861',
-      rightDeviceId: '64eb539f-4b48-44f6-bb30-d26861463ca6',
-      sampleRateHz: 100,
-      sourceType: 'SIMULATED',
-      adcMax: 4095,
-      memo: null,
-      createdAt: '2026-09-02T07:00:00Z',
-    });
+    const create = vi.spyOn(measurementApi, 'create').mockResolvedValue(createdSession);
     const start = vi.spyOn(measurementApi, 'start');
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={['/measurements/new']}>
-          <Routes>
-            <Route element={<NewMeasurementPage />} path="/measurements/new" />
-            <Route element={<h1>기존 세션 준비 화면</h1>} path="/measurements/:sessionId/live" />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    renderPage();
 
     await user.click(await screen.findByRole('radio', { name: /왼발 인솔/ }));
     await user.click(screen.getByRole('radio', { name: /오른발 인솔/ }));
@@ -71,5 +76,55 @@ describe('NewMeasurementPage', () => {
     expect(await screen.findByRole('heading', { name: '기존 세션 준비 화면' })).toBeInTheDocument();
     expect(create).toHaveBeenCalledTimes(1);
     expect(start).not.toHaveBeenCalled();
+  });
+
+  it('기본값은 50Hz·DEVICE이며 sourceType을 자동 판별하지 않는다', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(deviceApi, 'list').mockResolvedValue(devices);
+    const create = vi.spyOn(measurementApi, 'create').mockResolvedValue(createdSession);
+    renderPage();
+
+    expect(await screen.findByRole('radio', { name: /^50Hz/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /^100Hz/ })).not.toBeChecked();
+    await user.click(screen.getByRole('radio', { name: /왼발 인솔/ }));
+    await user.click(screen.getByRole('radio', { name: /오른발 인솔/ }));
+    await user.click(screen.getByRole('button', { name: '준비 완료 및 계속' }));
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create.mock.calls[0]?.[0]).toEqual({
+      leftDeviceId: devices[0]?.deviceId,
+      rightDeviceId: devices[1]?.deviceId,
+      sampleRateHz: 50,
+      sourceType: 'DEVICE',
+      memo: null,
+    });
+  });
+
+  it('100Hz와 개발 모드 시뮬레이션 세션을 선택하면 sampleRateHz 100·SIMULATED를 명시해 보낸다', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(deviceApi, 'list').mockResolvedValue(devices);
+    const create = vi.spyOn(measurementApi, 'create').mockResolvedValue({
+      ...createdSession,
+      sampleRateHz: 100,
+      sourceType: 'SIMULATED',
+    });
+    renderPage();
+
+    await user.click(await screen.findByRole('radio', { name: /왼발 인솔/ }));
+    await user.click(screen.getByRole('radio', { name: /오른발 인솔/ }));
+    await user.click(screen.getByRole('radio', { name: /^100Hz/ }));
+    // vitest는 import.meta.env.DEV=true이므로 개발 모드 체크박스가 노출된다.
+    await user.click(screen.getByRole('checkbox', { name: /시뮬레이션 세션/ }));
+    await user.type(screen.getByRole('textbox', { name: /측정 메모/ }), 'mock receiver E2E');
+    await user.click(screen.getByRole('button', { name: '준비 완료 및 계속' }));
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create.mock.calls[0]?.[0]).toEqual({
+      leftDeviceId: devices[0]?.deviceId,
+      rightDeviceId: devices[1]?.deviceId,
+      sampleRateHz: 100,
+      sourceType: 'SIMULATED',
+      memo: 'mock receiver E2E',
+    });
   });
 });

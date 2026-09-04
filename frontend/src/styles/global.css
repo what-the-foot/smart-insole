@@ -205,6 +205,11 @@ h3 { font-size: 1.08rem; }
 .selector-option svg { color: var(--color-primary); }
 .selector-empty { display: flex; margin: 18px 0 0; gap: 7px; color: var(--color-danger); }
 .setup-details { display: grid; grid-template-columns: 1fr 1.1fr; gap: 30px; align-items: center; }
+.sample-rate-fieldset { margin: 0; padding: 0; min-width: 0; border: 0; }
+.checkbox-field { display: flex; margin-top: 14px; align-items: flex-start; gap: 10px; cursor: pointer; }
+.checkbox-field input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--color-primary); }
+.checkbox-field span { display: grid; gap: 2px; }
+.checkbox-field small { color: var(--color-muted); font-size: .76rem; }
 .readiness-card, .safety-card { display: flex; padding: 25px; gap: 17px; border: 1px solid #c7dcd5; border-radius: var(--radius-md); color: #214a40; background: #edf7f3; }
 .readiness-card > svg, .safety-card > svg { width: 27px; height: 27px; flex: 0 0 auto; }
 .readiness-card h2, .safety-card h2 { margin-bottom: 10px; }
