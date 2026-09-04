@@ -3,8 +3,8 @@
 ## 목표
 
 - 사용자·기기 소유권
-- 측정 당시 기기·보정 버전 고정
-- 100Hz 원본 빠른 저장
+- 측정 당시 기기·보정 버전·ADC 스케일 고정
+- 50/100Hz 원본 빠른 저장
 - 재전송 중복 방지
 - 원본 불변과 재분석
 - 결과·기록 빠른 조회
@@ -42,18 +42,18 @@ erDiagram
 
 | 컬럼 | 설명 |
 |---|---|
-| version | `layout-v1` 등 PK |
+| version | `layout-s01s08-v1` 등 PK |
 | sensor_count | 6 또는 8 |
-| points_json | index, x, y, region, medialLateral |
-| active | 사용 가능 여부 |
+| points_json | index, x, y, region, medialLateral, label(선택) |
+| active | 등록 가능 여부(조회는 비활성도 허용) |
 | created_at | 생성 시각 |
 
-예:
+예(`layout-s01s08-v1`, V6 seed, index = S번호 − 1 = MUX 채널):
 
 ```json
 [
-  {"index": 0, "x": 0.50, "y": 0.90, "region": "HEEL", "medialLateral": "CENTER"},
-  {"index": 1, "x": 0.35, "y": 0.70, "region": "MIDFOOT", "medialLateral": "MEDIAL"}
+  {"index": 0, "label": "S01", "x": 0.40, "y": 0.88, "region": "HEEL", "medialLateral": "MEDIAL"},
+  {"index": 7, "label": "S08", "x": 0.36, "y": 0.12, "region": "TOE", "medialLateral": "MEDIAL"}
 ]
 ```
 
@@ -61,6 +61,7 @@ index는 펌웨어 배열 순서와 정확히 일치해야 합니다.
 좌표는 착용자의 발을 위에서 본 발 로컬 좌표계입니다. `x=0`은 내측, `x=1`은 외측이며
 `y=0`은 발가락, `y=1`은 뒤꿈치입니다. 양발을 나란히 표시할 때 프론트엔드는 왼발의
 센서 좌표와 CoP, 발 윤곽만 수평 반전하여 양쪽 내측이 화면 중앙을 향하게 합니다.
+`layout-v1`/`layout-v1-6`은 FK 보존을 위해 `active=false`로만 바뀌며 삭제하지 않습니다. 활성 6센서 seed는 하드웨어 확정 전까지 만들지 않습니다.
 
 ## devices
 
@@ -68,14 +69,16 @@ index는 펌웨어 배열 순서와 정확히 일치해야 합니다.
 |---|---|
 | id | UUID PK |
 | user_id | 소유자 FK |
-| serial_number | UNIQUE |
+| serial_number | UNIQUE (`SMART-INSOLE-{L\|R}-{hex8}` 권장) |
 | display_name | 화면명 |
 | foot_side | LEFT/RIGHT |
 | sensor_count | 6/8 |
 | sensor_layout_version | FK |
-| firmware_version | 펌웨어 |
+| firmware_version | 펌웨어(heartbeat로 갱신) |
+| adc_max | ADC 최댓값. 등록 허용값 4095, V5 이전 행은 65535 백필 |
 | status | ACTIVE 등 |
 | last_seen_at | heartbeat |
+| last_battery_percent, last_battery_mv | 마지막 반영된 heartbeat 배터리 |
 | registered_at, updated_at | 시각 |
 
 인덱스:
@@ -112,17 +115,21 @@ UNIQUE(device_id, version)
 | user_id | 사용자 |
 | left_device_id/right_device_id | 양발 기기 |
 | left_calibration_id/right_calibration_id | 당시 보정 |
+| left/right_sensor_layout_version | 당시 레이아웃 |
 | status | 상태 |
-| sample_rate_hz | 100 |
-| source_type | DEVICE/SIMULATED |
+| sample_rate_hz | 50 또는 100 |
+| source_type | DEVICE/SIMULATED (기본 DEVICE) |
+| adc_max | 생성 시 기기 adc_max 스냅샷(검증·정규화·포화 판정 기준). V5 이전 행은 65535 백필 |
+| receiver_id | 첫 배치 또는 상태 보고의 receiverId |
+| receiver_state, receiver_pending_batches, receiver_observed_at | 마지막 receiver-status 보고 |
 | memo | 선택 |
 | data_quality_score | 0~100 |
 | started_at/ended_at | 시각 |
-| created_at/updated_at | 시각 |
+| created_at/updated_at, version | 시각·낙관적 잠금 |
 
 검증:
 
-- 양쪽 기기가 다름
+- 양쪽 기기가 다르고 adc_max가 같음
 - LEFT 기기는 왼발, RIGHT 기기는 오른발
 - 모두 해당 사용자 소유
 - 상태 전이는 도메인 메서드
@@ -144,11 +151,17 @@ INDEX(status, updated_at)
 | session_id | FK |
 | device_id | FK |
 | foot_side | LEFT/RIGHT |
-| sequence_no | 순서 |
+| sequence_no | 단조 u32 (0..4294967295) |
 | device_time_ms | 기기 시간 |
-| received_at | 서버 수신 |
-| sensor_1~sensor_6 | 필수 |
+| received_at | 배치 서버 수신 |
+| sensor_1~sensor_6 | 필수 (0..adc_max) |
 | sensor_7~sensor_8 | 6센서 기기면 null |
+| protocol_version | (1.1) BLE 프로토콜 버전, 1.0 배치는 NULL |
+| receiver_received_at TIMESTAMP(6) | (1.1) 프레임별 수신기 수신 시각, 좌우 정렬 기준 |
+| data_mode | (1.1) RAW/FILTERED |
+| calibrated, imu_available | (1.1) BOOLEAN |
+| accel_x/y/z_mg, gyro_x/y/z_dps10 | (1.1) int16 IMU |
+| flags | (1.1, v2) bit0 FSR_ERROR, bit1 IMU_ERROR, bit2 BATTERY_LOW |
 
 ```text
 UNIQUE(session_id, device_id, sequence_no)
@@ -159,12 +172,12 @@ INDEX(device_id, received_at)
 
 저장:
 
-- JDBC batch
+- JDBC batch (26컬럼 INSERT)
 - 유효 프레임 일괄 입력
 - 중복은 count
 - 기본 최대 200프레임
 
-양발 기준 10분이면 약 120,000행이므로 목록 API에서 원본 전체를 반환하지 않습니다.
+양발 기준 10분이면 50Hz 60,000행·100Hz 120,000행이므로 목록 API에서 원본 전체를 반환하지 않습니다.
 
 ## measurement_quality_stats
 
@@ -175,10 +188,12 @@ INDEX(device_id, received_at)
 | received_frame_count | 수신 |
 | duplicate_frame_count | 중복 |
 | rejected_frame_count | 거절 |
-| sequence_gap_count | gap |
+| sequence_gap_count | gap = Σ(last − first + 1) − received (O(1)), 완료 시 저장 행으로 1회 대조 |
 | missing_frame_rate | 누락률 |
 | flags_json | 품질 코드 |
 | score/level | 요약 |
+| first_left/right_sequence | 발별 첫 sequence |
+| last_left/right_sequence, last_left/right_device_time_ms | 발별 커서 |
 | updated_at | 갱신 |
 
 ## analysis_jobs
@@ -188,7 +203,7 @@ INDEX(device_id, received_at)
 | id | UUID |
 | session_id | 세션 |
 | status | PENDING/RUNNING/COMPLETED/FAILED |
-| algorithm_version | 버전 |
+| algorithm_version | 버전 (현재 `rule-v1.2.0`) |
 | attempt_count | 시도 |
 | error_code/message | 실패 |
 | created/started/completed_at | 시각 |
@@ -209,8 +224,10 @@ UNIQUE(session_id, algorithm_version)
 | cadence | 걸음수 |
 | left/right_contact_time_ms | 접촉 시간 |
 | symmetry_index | 좌우 지수 |
-| pressure_distribution_json | 영역 비율 |
+| valid_step_count | 유효 걸음(창) 수, rule-v1.1.0 이전 NULL |
+| pressure_distribution_json | 영역 비율, 최대 압력, 평균 CoP, 센서 share |
 | quality_flags_json | 플래그 |
+| observation_summary_json | (rule-v1.2.0) 6종 코드의 관찰 단계, 이전 버전 NULL |
 | created_at | 생성 |
 
 ```text
@@ -220,12 +237,13 @@ UNIQUE(session_id, algorithm_version)
 ## analysis_patterns
 
 - analysis_result_id
-- pattern_code
+- pattern_code (rule-v1.2.0 6종 중 PARTIALLY/REPEATEDLY만 저장)
 - severity
 - title
 - message
 - evidence
 - sort_order
+- observation_level, occurrence_rate, observed_count, window_count (rule-v1.2.0, 이전 NULL)
 
 프론트가 임의로 진단 문구를 만들지 않도록 표시 정보를 반환합니다.
 
@@ -256,21 +274,19 @@ UNIQUE(session_id, algorithm_version)
 
 초기 MVP에서는 결과 요약 뒤로 미룰 수 있습니다.
 
-## Flyway 순서 예시
+## Flyway 순서 (실제)
 
 ```text
-V1__create_users.sql
-V2__create_sensor_layouts_and_devices.sql
-V3__create_calibration_profiles.sql
-V4__create_measurement_sessions.sql
-V5__create_pressure_frames.sql
-V6__create_quality_stats.sql
-V7__create_analysis_tables.sql
-V8__seed_sensor_layout_v1.sql
-V9__seed_recommendations.sql
+V1__create_schema.sql
+V2__seed_layouts_and_recommendations.sql
+V3__add_quality_tracking_and_history_indexes.sql
+V4__add_valid_step_count.sql
+V5__add_frame_metadata_and_receiver_columns.sql   # 1.1 프레임 메타, adc_max(백필 65535), 배터리, receiver 상태, first sequence
+V6__seed_layout_s01s08.sql                        # layout-s01s08-v1 seed, layout-v1/-6 비활성
+V7__add_observation_fields.sql                    # 관찰 단계 컬럼, observation_summary_json
 ```
 
-적용된 migration을 수정하지 않고 새 버전을 추가합니다.
+적용된 migration을 수정하지 않고 새 버전을 추가합니다. `ddl-auto: validate`이므로 엔티티와 migration을 함께 바꿉니다. 65535 리터럴은 V5 SQL에만 존재하고 자바 코드에는 없습니다.
 
 ## 조회 원칙
 

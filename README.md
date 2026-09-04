@@ -11,6 +11,17 @@
 
 현재 MVP 흐름은 회원가입·JWT 로그인, 기기 등록과 활성 보정 프로필, 측정 상태 전이, 멱등 원본 프레임 수신, 양발 실시간 족압, 품질 집계, 복구 가능한 비동기 규칙 분석, 결과·추천·필터 가능한 기록 조회까지 구현되어 있습니다. 하드웨어가 없는 현재 단계의 자동 보정은 `identity-v1` 기능 시험용 프로필이며 화면과 문서에 이 제한을 표시합니다.
 
+## 계약 1.1 (2026-09-04)
+
+`contracts/openapi.yaml` 1.1.0은 실기기 수신기(`smart-insole-ble-gateway`)와 펌웨어 연동을 위해 다음을 확정합니다. 세부 의미는 `docs/02_API_AND_REALTIME_CONTRACT.md`, 결정 근거는 `docs/09_DECISION_LOG.md` DEC-024..032를 참고하세요.
+
+- Frame Batch `schemaVersion` 1.0/1.1: 1.1은 프레임별 `receivedAt`, `protocolVersion`, `dataMode`, `calibrated`, `imuAvailable`, IMU 벡터, `flags`, `batchId`를 선택 필드로 추가합니다.
+- 수신기용 API: `GET /internal/v1/measurement-sessions/{id}`, `GET /internal/v1/measurement-sessions?status=MEASURING`, `POST .../receiver-status`, heartbeat의 `batteryMv`/`firmwareVersion`. 409 `SESSION_NOT_MEASURING`은 `details.disposition`(RETRY/DROP)과 `Retry-After`를 줍니다.
+- 데이터 의미: ADC 0..4095(`devices.adcMax`, 세션 스냅샷), 센서 순서 `layout-s01s08-v1`(S01..S08 `label`), sequence 단조 u32, `sampleRateHz` 50/100, `sourceType` 기본 DEVICE(시뮬레이터만 SIMULATED 명시).
+- 분석 `rule-v1.2.0`: 6종 패턴 코드, 유효 걸음 창 기준 `observationLevel`/`occurrenceRate`, `observationSummary`, 센서별 share. 이전 결과의 새 필드는 `null`입니다.
+- STOMP: 토큰 만료 시 `ERROR` 프레임(`TOKEN_EXPIRED`) 후 연결 종료.
+- Flyway V5(프레임 메타·ADC·수신기 컬럼), V6(레이아웃 seed), V7(관찰 필드)이 추가되었습니다. 레거시 행의 `adc_max`는 65535로 백필됩니다.
+
 ## 빠른 시작
 
 필수 도구는 Java 21, Node.js 20.19 이상(또는 22.12 이상), Python 3.10 이상, Docker Compose입니다.
@@ -45,7 +56,7 @@ python -m pip install -r scripts/requirements-contracts.txt
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-all.ps1
 ```
 
-실행 중인 백엔드까지 포함한 API E2E는 Receiver Key 환경변수를 설정하고 `-E2E`를 추가합니다. 상세한 Mock Receiver와 장시간 관찰 사용법은 `scripts/README.md`를 참고하세요.
+실행 중인 백엔드까지 포함한 API E2E는 Receiver Key 환경변수를 설정하고 `-E2E`를 추가합니다. MySQL·백엔드·BLE 수신기 CLI가 모두 있을 때는 `-GatewayE2E`로 하드웨어 없는 전 구간 mock E2E(`scripts/e2e_gateway_mock.py`)를 실행할 수 있으며 기본값은 SKIP입니다. 상세한 Mock Receiver(1.1 배치, 세션 sourceType 확인)와 장시간 관찰 사용법은 `scripts/README.md`를 참고하세요.
 
 ## 기본 기술 선택
 
@@ -157,7 +168,7 @@ smart-insole/
 로그인
 → 왼발·오른발 기기 선택
 → 측정 세션 생성·시작
-→ Mock Receiver가 100Hz 원본 프레임을 배치 전송
+→ Mock Receiver(또는 BLE 수신기)가 50/100Hz 원본 프레임을 schemaVersion 1.1 배치로 전송
 → 백엔드가 중복 없이 저장
 → 프론트엔드가 양발 히트맵 표시
 → 측정 종료

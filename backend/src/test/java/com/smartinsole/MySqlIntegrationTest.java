@@ -103,6 +103,17 @@ class MySqlIntegrationTest {
         ingestion.ingest(sessionId, request(List.of(frame(left, 16), frame(right, 16))));
         assertThat(qualities.findById(sessionId).orElseThrow().getSequenceGapCount()).isZero();
 
+        var roundTrip = ingestion.ingest(sessionId, new FrameBatchRequest("1.1", "MYSQL-TEST-RECEIVER",
+                "batch-0001", Instant.now(), List.of(frame11(left, 18), frame11(right, 18))));
+        assertThat(roundTrip.acceptedCount()).isEqualTo(2);
+        assertThat(frames.findBySessionOrdered(sessionId)).filteredOn(stored -> stored.sequence() == 18)
+                .hasSize(2)
+                .allSatisfy(stored -> {
+                    assertThat(stored.receiverReceivedAt()).isNotNull();
+                    assertThat(stored.accelMg()).containsExactly(10, -20, 995);
+                    assertThat(stored.protocolVersion()).isEqualTo(1);
+                });
+
         measurements.complete(sessionId, userId);
         for (int attempt = 0; attempt < 100
                 && sessions.findById(sessionId).orElseThrow().getStatus() != MeasurementStatus.COMPLETED; attempt++) {
@@ -136,6 +147,12 @@ class MySqlIntegrationTest {
     private static PressureFrameInput frame(DeviceResponse device, long sequence) {
         return new PressureFrameInput(device.deviceId().toString(), device.footSide().name(), sequence,
                 sequence * 10, List.of(500, 600, 700, 800, 900, 1000, 1100, 1200));
+    }
+
+    private static PressureFrameInput frame11(DeviceResponse device, long sequence) {
+        return new PressureFrameInput(device.deviceId().toString(), device.footSide().name(), sequence,
+                sequence * 10, List.of(500, 600, 700, 800, 900, 1000, 1100, 1200), 1,
+                "2026-09-04T01:02:03.401234Z", "RAW", false, true, List.of(10, -20, 995), List.of(3, -4, 5), null);
     }
 
     private static FrameBatchRequest request(List<PressureFrameInput> frames) {

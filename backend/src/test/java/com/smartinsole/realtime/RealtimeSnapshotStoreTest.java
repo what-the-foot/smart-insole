@@ -64,6 +64,41 @@ class RealtimeSnapshotStoreTest {
         assertThat(raw).containsOnly(0);
     }
 
+    @Test
+    void normalisesSensorValuesAgainstTheSessionAdcScale() {
+        Instant receivedAt = Instant.parse("2026-09-04T07:00:00Z");
+        UUID leftDevice = UUID.randomUUID();
+        UUID rightDevice = UUID.randomUUID();
+        CalibrationProfile calibration = CalibrationProfile.identity(leftDevice,
+                "[0,0,0,0,0,0,0,0]", "[1,1,1,1,1,1,1,1]", receivedAt);
+        MeasurementSession session = TestSessions.create(UUID.randomUUID(), leftDevice, rightDevice,
+                calibration.getId(), calibration.getId(), "layout-v1", "layout-v1", 50,
+                com.smartinsole.global.common.DomainTypes.SourceType.DEVICE, 4095, null, receivedAt.minusSeconds(1));
+        session.start(receivedAt.minusSeconds(1));
+        CalibrationProfileRepository calibrations = mock(CalibrationProfileRepository.class);
+        SensorLayoutRepository layouts = mock(SensorLayoutRepository.class);
+        MeasurementQualityRepository qualities = mock(MeasurementQualityRepository.class);
+        when(calibrations.findById(calibration.getId())).thenReturn(Optional.of(calibration));
+        when(layouts.findById("layout-v1")).thenReturn(Optional.of(new SensorLayout("layout-v1", 8, points(), true,
+                receivedAt)));
+        when(qualities.findById(session.getId())).thenReturn(Optional.empty());
+        RealtimeSnapshotStore store = new RealtimeSnapshotStore(calibrations, layouts, qualities,
+                new ObjectMapper(), new RealtimeProperties(10, Duration.ofSeconds(2)),
+                TestAnalysisProperties.defaults());
+        store.update(session, List.of(
+                new PressureFrameData(leftDevice, FootSide.LEFT, 1, 20, List.of(4095, 4095, 4095, 4095, 4095, 4095, 4095, 4095)),
+                new PressureFrameData(rightDevice, FootSide.RIGHT, 1, 20, List.of(41, 41, 41, 41, 41, 41, 41, 41))),
+                receivedAt);
+
+        RealtimeDtos.RealtimePressureMessage message = store.message(session, receivedAt);
+
+        assertThat(message.left().sensorValues()).containsOnly(100.0);
+        assertThat(message.left().totalPressure()).isEqualTo(800.0);
+        assertThat(message.left().contactState()).isEqualTo(com.smartinsole.global.common.DomainTypes.ContactState.CONTACT);
+        assertThat(message.right().totalPressure()).isLessThan(30.0);
+        assertThat(message.right().contactState()).isEqualTo(com.smartinsole.global.common.DomainTypes.ContactState.NO_CONTACT);
+    }
+
     private static String points() {
         return """
                 [{"index":0,"x":0.5,"y":0.9,"region":"HEEL","medialLateral":"CENTER"},

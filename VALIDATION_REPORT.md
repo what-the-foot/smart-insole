@@ -1,51 +1,53 @@
-# 문서 패키지 검증 보고서
+# 검증 보고서
 
-검증일: 2026-09-02  
-대상: `smart-insole-codex-kit`
+검증일: 2026-09-04  
+대상: `smart-insole-codex-kit` (계약 1.1 · 백엔드 1단계, 브랜치 `main`)  
+환경: Windows 11, 번들 JDK 21 (`.tooling/jdk21`), Gradle 9.7.1 (offline), Python 3.10, Docker 없음
 
-## 결과
+## 결과 요약
 
-- 통과: 13
-- 실패: 0
-- 결론: 배포 가능한 문서 패키지
+| 상태 | 검사 | 명령 | 결과 |
+|---|---|---|---|
+| PASS | 계약·fixture 검증 | `python scripts/validate_contracts.py` | 14 passed, 0 failed (OpenAPI 1.1.0, 19 operations, 146 local `$ref`, 9 enums, 9 frame fixtures on the 4095 scale, 11 manifest cases) |
+| PASS | 스크립트 단위 테스트 | `python -m unittest discover -s scripts -p "test_*.py"` | 7 tests OK |
+| PASS | 스크립트 컴파일·dry-run | `py_compile`, `mock_receiver.py --dry-run`(1.1 fixture, 50 Hz 재조정, `--repeat 2`), `observe_long_run.py --dry-run`, `e2e_gateway_mock.py --help` | 정상 종료 |
+| PASS | 백엔드 테스트 (H2, `test` 프로필) | `gradlew.bat test --no-daemon --offline` | 74 tests, 0 failures, 0 errors, 1 skipped |
+| SKIP | MySQL Testcontainers | `MySqlIntegrationTest` | `@Testcontainers(disabledWithoutDocker = true)` — 이 환경에 Docker가 없어 실행되지 않음. Flyway V5–V7과 MySQL 8.4 SQL은 실행으로 검증하지 못했습니다 |
+| NOT RUN | API E2E smoke / gateway mock E2E | `scripts/e2e_smoke.py`, `scripts/e2e_gateway_mock.py` | MySQL·백엔드·수신기 CLI 필요 |
+| NOT RUN | 프론트엔드 | `npm run lint/test/build`, `api:generate` | 별도 작업(프론트 에이전트)에서 `schema.ts` 재생성 후 수행 |
 
-| 상태 | 검사 | 결과 |
+`gradlew test` 실행 클래스(74 tests): ApiFlowIntegrationTest, FrameBatchContractTest, ReceiverSessionControllerTest,
+PressureFrameIngestionServiceTest, MeasurementServiceTest, DeviceServiceTest, RecommendationServiceTest,
+QualityServiceTest, MeasurementSessionTest, HistoryLatestResultIntegrationTest, RuleBasedAnalyzerTest,
+AnalysisCoordinatorTest, AnalysisResultQueryServiceTest, AnalysisRunnerTest, AnalysisJobStateServiceConcurrencyTest,
+RealtimeServiceTest, RealtimeSnapshotStoreTest, StompAuthorizationInterceptorTest, DeviceHeartbeatTest,
+AsyncConfigTest, SecurityPropertiesTest, JwtServiceTest, MySqlIntegrationTest(skipped).
+
+## 1단계 완료 기준 대조 (계획 4장)
+
+| 기준 | 상태 | 근거 |
 |---|---|---|
-| PASS | 파일 존재 | 47개 파일 확인 |
-| PASS | 필수 문서 | 20개 존재 |
-| PASS | 프롬프트 수 | 단계별·템플릿 포함 15개 |
-| PASS | 작업 ID 매핑 | 작업 보드 41개 ID가 프롬프트에 모두 포함 |
-| PASS | OpenAPI YAML | 3.0.3 문서 parse 및 핵심 필드 확인 |
-| PASS | OpenAPI 내부 참조 | 깨진 local $ref 없음 |
-| PASS | OpenAPI operationId | 15개 고유 operationId |
-| PASS | Realtime JSON Schema | Draft 2020-12 schema 유효 |
-| PASS | Realtime 예시 | 2개 메시지 schema 통과 |
-| PASS | Frame Batch fixture | 7개가 OpenAPI 핵심 제약과 일치 |
-| PASS | Fixture manifest | 9개 case 파일 연결 |
-| PASS | Markdown 내용 | 35개 비어 있지 않음 |
-| PASS | README 파일 링크 | 17개 참조 검사 |
-
-## 수행한 검증
-
-1. 필수 문서와 프롬프트 파일 존재 여부
-2. 작업 보드의 41개 ID가 단계별 프롬프트에 모두 포함되는지
-3. OpenAPI YAML parse, 핵심 필드, 내부 `$ref`, `operationId` 누락·중복
-4. Draft 2020-12 실시간 JSON Schema 자체 유효성
-5. 양발 및 오른발 중단 실시간 메시지 예시의 Schema 검증
-6. 7개 Frame Batch fixture의 필드, UUID, enum, 센서 수, ADC 범위, batch 크기
-7. Fixture manifest가 실제 파일을 가리키는지
-8. Markdown 파일이 비어 있지 않은지
-9. README의 주요 파일 참조가 존재하는지
+| `validate_contracts.py` PASS | PASS | 14/14 |
+| `gradlew test` PASS | PASS | 74/0/1 skipped |
+| MySQL Testcontainers Flyway applied ≥ 5 | NOT RUN | 테스트는 `applied >= 7`로 갱신했으나 Docker 없음 |
+| 1.0/1.1 배치 모두 200 | PASS | `FrameBatchContractTest`(fixtures/frame-batch-device-v1_1.json 24프레임 acceptedCount 24), `ApiFlowIntegrationTest`(1.0) |
+| 4096 프레임 `INVALID_ADC_VALUE` | PASS | `FrameBatchContractTest`, `PressureFrameIngestionServiceTest` |
+| 세션 조회 401/200 | PASS | `ReceiverSessionControllerTest` |
+| complete 후 배치 409 DROP · CREATED 세션 409 RETRY(`Retry-After`) | PASS | `FrameBatchContractTest`, `ApiFlowIntegrationTest`, `ReceiverSessionControllerTest`, `PressureFrameIngestionServiceTest` |
+| 자바 코드 `65535` 0건 | PASS | `grep -rn 65535 backend/src` → V5 SQL 백필 2건만 |
+| sampleRateHz 50 세션 201 · 60은 422 | PASS | `FrameBatchContractTest`(50), `MeasurementServiceTest`(60 → SEMANTIC_VALIDATION_FAILED) |
+| `GET /api/v1/sensor-layouts/layout-s01s08-v1` 8점·label S01..S08, `layout-v1` 조회 200·등록 422 | PASS | `FrameBatchContractTest`, `DeviceServiceTest` (seed 자체는 V6 SQL, MySQL 미실행) |
+| rule-v1.2.0 `observationSummary` 6종·patterns 부분집합, 레거시 결과 500 없음, 폐기 코드 미출력 | PASS | `ApiFlowIntegrationTest`, `RuleBasedAnalyzerTest`, `AnalysisResultQueryServiceTest`, `RecommendationServiceTest` |
+| STOMP `TOKEN_EXPIRED` ERROR 프레임 | PASS | `StompAuthorizationInterceptorTest` |
 
 ## 검증 범위의 한계
 
-이 검증은 **문서·계약·fixture 패키지 자체**를 대상으로 합니다. 아직 실제 Spring Boot와 React 애플리케이션을 구현하지 않았으므로 다음은 실행하지 않았습니다.
-
-- `./gradlew test`, `./gradlew check`
-- `npm run lint`, `npm run test`, `npm run build`
-- 실제 MySQL/Flyway
-- 실제 REST·STOMP 통합
-- 브라우저 E2E
-- 전체 OpenAPI 표준 전용 validator
-
-OpenAPI는 YAML 구조, 필수 섹션, local `$ref`, operation ID 및 fixture 핵심 제약을 검사했습니다. 실제 코드가 생성된 뒤에는 `CON-001`에서 전용 OpenAPI validator와 타입 생성 검증을 저장소의 자동화 명령으로 추가해야 합니다.
+- Docker가 없어 MySQL 8.4 위의 Flyway V5–V7(`ALTER ... ADD COLUMN`, `UPDATE ... SET adc_max = 65535`, layout seed)과
+  `ddl-auto: validate` 정합성은 실행으로 확인하지 못했습니다. H2 `create-drop` 프로필은 엔티티 기준으로만 검증합니다.
+  CI 또는 로컬에서 Docker를 확보해 `MySqlIntegrationTest`를 실행해야 합니다.
+- `scripts/e2e_gateway_mock.py`는 수신기 저장소의 CLI·환경변수 이름(`settings.py`)과 `MetricsSnapshot` 필드명을 전제로
+  작성했으며 실행하지 않았습니다. 수신기 2단계 완료 후 `verify-all --gateway-e2e`로 검증합니다.
+- 프론트엔드는 이 변경으로 `schema.ts` 재생성과 exact-key 배열·기본 레이아웃·`sourceType`·결과 화면 갱신이 필요하며
+  이 보고서에서는 실행하지 않았습니다.
+- 접촉 임계값(센서당 3.75), 관찰 단계 비율(0.20/0.60, 최소 창 4), 창별 임계값(forefoot 0.60, rearfoot 0.55, hallux 5 %)은
+  모두 제안값이며 실측·임상 근거가 없습니다.

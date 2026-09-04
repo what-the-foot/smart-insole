@@ -240,6 +240,32 @@ class ApiFlowIntegrationTest {
                         .header("Authorization", bearer(aliceToken)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("INVALID_SESSION_STATE"));
+
+        // A batch that arrives after completion is dropped explicitly (no Retry-After).
+        mvc.perform(post("/internal/v1/measurement-sessions/{id}/frame-batches", sessionId)
+                        .header("X-Receiver-Key", "test-receiver-key")
+                        .contentType(MediaType.APPLICATION_JSON).content(batch(leftId, rightId, 9, false)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SESSION_NOT_MEASURING"))
+                .andExpect(jsonPath("$.details.currentStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.details.disposition").value("DROP"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("X-Batch-Disposition", "DROP"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .doesNotExist("Retry-After"));
+
+        mvc.perform(post("/internal/v1/devices/{id}/heartbeat", leftId)
+                        .header("X-Receiver-Key", "test-receiver-key").contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(java.util.Map.of(
+                                "receiverId", "GATEWAY-DEV-001", "observedAt", "2026-09-04T01:00:20Z",
+                                "connected", true, "batteryPercent", 80.0, "batteryMv", 3900,
+                                "firmwareVersion", "0.2.0"))))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/devices").header("Authorization", bearer(aliceToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.deviceId == '" + leftId + "')].lastBatteryMv").value(3900))
+                .andExpect(jsonPath("$[?(@.deviceId == '" + leftId + "')].firmwareVersion").value("0.2.0"))
+                .andExpect(jsonPath("$[?(@.deviceId == '" + leftId + "')].adcMax").value(4095));
     }
 
     private org.springframework.test.web.servlet.ResultActions signup(String email, String name) throws Exception {
