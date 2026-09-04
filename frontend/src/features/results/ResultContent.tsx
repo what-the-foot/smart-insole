@@ -3,7 +3,7 @@ import type { AnalysisResultResponse, PatternResult } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { StatusBadge } from '../../components/StatusUi';
 import { formatDateTime, formatNumber, formatPercent } from '../../utils/format';
-import { qualityFlagLabel, qualityLabels } from '../../utils/labels';
+import { qualityFlagLabel, qualityLabels, resultTerms } from '../../utils/labels';
 
 const severityTone = (severity: PatternResult['severity']) =>
   severity === 'INFO' ? 'info' as const : severity === 'CAUTION' ? 'warning' as const : 'danger' as const;
@@ -40,17 +40,17 @@ export function ResultContent({ result }: { result: AnalysisResultResponse }) {
       </section>
 
       <section className="content-card" aria-labelledby="distribution-title">
-        <div className="section-heading"><div><p className="eyebrow">PRESSURE DISTRIBUTION</p><h2 id="distribution-title">좌우 압력 분포</h2></div></div>
+        <div className="section-heading"><div><p className="eyebrow">SIGNAL DISTRIBUTION</p><h2 id="distribution-title">좌우 신호 분포</h2></div></div>
         <div className="distribution-grid">
           <DistributionFoot label="왼발" medial={result.pressureDistribution.leftMedialRatio} lateral={result.pressureDistribution.leftLateralRatio} heel={result.pressureDistribution.leftHeelRatio} midfoot={result.pressureDistribution.leftMidfootRatio} forefoot={result.pressureDistribution.leftForefootRatio} peak={result.pressureDistribution.leftPeakPressure} meanCoP={result.pressureDistribution.leftMeanCoP} side="left" />
           <DistributionFoot label="오른발" medial={result.pressureDistribution.rightMedialRatio} lateral={result.pressureDistribution.rightLateralRatio} heel={result.pressureDistribution.rightHeelRatio} midfoot={result.pressureDistribution.rightMidfootRatio} forefoot={result.pressureDistribution.rightForefootRatio} peak={result.pressureDistribution.rightPeakPressure} meanCoP={result.pressureDistribution.rightMeanCoP} side="right" />
         </div>
-        <p className="metric-note">전족부는 발가락 영역을 포함합니다. 최대 압력과 평균 CoP는 보정된 0~100 압력 및 0~1 좌표계의 분석 요약이며 의료 진단값이 아닙니다.</p>
+        <p className="metric-note">전족부는 발가락 영역을 포함합니다. {resultTerms.peakSignal}와 평균 {resultTerms.estimatedCop}은 세션 ADC 기준 0~100 상대 신호와 0~1 좌표계의 분석 요약이며, 보정된 압력값이나 의료 진단값이 아닙니다.</p>
       </section>
 
       <section aria-labelledby="pattern-title">
         <div className="section-heading"><div><p className="eyebrow">OBSERVED PATTERNS</p><h2 id="pattern-title">관찰된 패턴</h2></div></div>
-        {result.patterns.length ? <div className="pattern-list">{result.patterns.map((pattern) => <article className="pattern-card" key={`${pattern.code}-${pattern.title}`}><div className="pattern-card__top"><span className="pattern-card__icon"><Icon name="activity" /></span><div><StatusBadge tone={severityTone(pattern.severity)}>{severityLabel[pattern.severity]}</StatusBadge><h3>{pattern.title}</h3></div></div><p>{pattern.message}</p><div className="evidence-box"><strong>관찰 근거</strong><p>{pattern.evidence}</p></div></article>)}</div> : <div className="no-pattern"><Icon name="check" /><div><h3>이번 측정에서 표시할 주요 패턴이 없습니다.</h3><p>이 안내는 질환이 없거나 완전히 정상임을 확정하는 의미가 아닙니다.</p></div></div>}
+        {result.patterns.length ? <div className="pattern-list">{result.patterns.map((pattern) => <article className="pattern-card" key={`${pattern.code}-${pattern.title}`}><div className="pattern-card__top"><span className="pattern-card__icon"><Icon name="activity" /></span><div><StatusBadge tone={severityTone(pattern.severity)}>{severityLabel[pattern.severity]}</StatusBadge><h3>{pattern.title}</h3></div></div><p>{pattern.message}</p><div className="evidence-box"><strong>관찰 근거</strong><p>{pattern.evidence}</p></div></article>)}</div> : <div className="no-pattern"><Icon name="check" /><div><h3>이번 측정에서 표시할 주요 패턴이 없습니다.</h3><p>반복 관찰된 경향이 없었다는 뜻일 뿐이며, 질환 유무나 건강 상태를 확정하는 의미가 아닙니다.</p></div></div>}
       </section>
 
       <section aria-labelledby="recommendation-title">
@@ -65,7 +65,7 @@ export function ResultContent({ result }: { result: AnalysisResultResponse }) {
 }
 
 function DistributionFoot({ label, medial, lateral, heel, midfoot, forefoot, peak, meanCoP, side }: { label: string; medial: number; lateral: number; heel: number; midfoot: number | null; forefoot: number | null; peak: number | null; meanCoP: { x: number; y: number } | null; side: 'left' | 'right' }) {
-  return <article className="distribution-foot"><div className="distribution-foot__title"><span className={`device-side device-side--${side}`}>{side === 'left' ? 'L' : 'R'}</span><h3>{label}</h3></div><div className="ratio-group"><strong>좌우 방향</strong><RatioBar label="내측" ratio={medial} /><RatioBar label="외측" ratio={lateral} /></div><div className="ratio-group"><strong>발 길이 방향</strong><RatioBar label="뒤꿈치" ratio={heel} /><RatioBar label="중족부" ratio={midfoot} /><RatioBar label="전족부·발가락" ratio={forefoot} /></div><div className="distribution-summary"><div><span>최대 압력</span><strong>{peak === null ? '제공 안 됨' : `${formatNumber(peak)} / 100`}</strong></div><div><span>평균 CoP</span><strong>{meanCoP ? `x ${formatNumber(meanCoP.x, 2)} · y ${formatNumber(meanCoP.y, 2)}` : '데이터 없음'}</strong></div></div></article>;
+  return <article className="distribution-foot"><div className="distribution-foot__title"><span className={`device-side device-side--${side}`}>{side === 'left' ? 'L' : 'R'}</span><h3>{label}</h3></div><div className="ratio-group"><strong>좌우 방향</strong><RatioBar label="내측" ratio={medial} /><RatioBar label="외측" ratio={lateral} /></div><div className="ratio-group"><strong>발 길이 방향</strong><RatioBar label="뒤꿈치" ratio={heel} /><RatioBar label="중족부" ratio={midfoot} /><RatioBar label="전족부·발가락" ratio={forefoot} /></div><div className="distribution-summary"><div><span>{resultTerms.peakSignal}</span><strong>{peak === null ? '제공 안 됨' : `${formatNumber(peak)} / 100`}</strong></div><div><span>평균 {resultTerms.estimatedCop}</span><strong>{meanCoP ? `x ${formatNumber(meanCoP.x, 2)} · y ${formatNumber(meanCoP.y, 2)}` : '데이터 없음'}</strong></div></div></article>;
 }
 
 function RatioBar({ label, ratio }: { label: string; ratio: number | null }) {

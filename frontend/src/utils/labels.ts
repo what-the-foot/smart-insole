@@ -33,6 +33,15 @@ export const contactStateLabels: Record<ContactState, string> = {
   UNKNOWN: '확인 중',
 };
 
+// 결과·실시간 화면 용어. 센서 값은 보정된 압력이 아니라 세션 adcMax 기준 상대 신호이므로
+// '최대 압력'·'CoP' 대신 아래 용어만 사용한다(회귀 테스트: ResultContent.test.tsx).
+export const resultTerms = {
+  signalShare: '센서 신호 비율',
+  peakSignal: '최대 센서 신호',
+  estimatedCop: '추정 압력중심',
+  totalSignal: '총 신호',
+} as const;
+
 export const qualityFlagLabel = (flag: string): string => {
   const labels: Record<string, string> = {
     RIGHT_DEVICE_DISCONNECTED: '오른발 인솔의 데이터가 수신되지 않습니다.',

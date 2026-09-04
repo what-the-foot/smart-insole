@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { AnalysisResultResponse } from '../../api/types';
+import { resultTerms } from '../../utils/labels';
 import { ResultContent } from './ResultContent';
 import { shouldPollResult } from './resultPolling';
 
@@ -31,18 +32,46 @@ describe('결과 표시와 폴링', () => {
     expect(shouldPollResult({ kind: 'completed', data: result })).toBe(false);
   });
 
-  it('패턴이 없어도 정상·질환을 확정하지 않고 서버 disclaimer를 항상 표시한다', () => {
+  it('패턴이 없어도 건강 상태·질환을 확정하지 않고 서버 disclaimer를 항상 표시한다', () => {
     render(<MemoryRouter><ResultContent result={result} /></MemoryRouter>);
     expect(screen.getByText('이번 측정에서 표시할 주요 패턴이 없습니다.')).toBeInTheDocument();
-    expect(screen.getByText(/질환이 없거나 완전히 정상임을 확정하는 의미가 아닙니다/)).toBeInTheDocument();
+    expect(screen.getByText(/질환 유무나 건강 상태를 확정하는 의미가 아닙니다/)).toBeInTheDocument();
     expect(screen.getByText(result.disclaimer)).toBeInTheDocument();
     expect(screen.queryByText('평발입니다')).not.toBeInTheDocument();
     expect(screen.queryByText('치료됩니다')).not.toBeInTheDocument();
     expect(screen.getByText('분석에 사용한 유효 걸음')).toBeInTheDocument();
     expect(screen.getAllByText('중족부')).toHaveLength(2);
-    expect(screen.getAllByText('최대 압력')).toHaveLength(2);
+    expect(screen.getAllByText(resultTerms.peakSignal)).toHaveLength(2);
+    expect(screen.getAllByText(`평균 ${resultTerms.estimatedCop}`)).toHaveLength(2);
     expect(screen.getByText('x 0.42 · y 0.67')).toBeInTheDocument();
     expect(screen.getByText('데이터 없음')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['패턴 없음', result],
+    [
+      '패턴 있음',
+      {
+        ...result,
+        patterns: [
+          {
+            code: 'MEDIAL_LOAD_TENDENCY',
+            severity: 'CAUTION' as const,
+            title: '내측 하중 경향',
+            message: '내측 센서 신호 비율이 높게 관찰되었습니다.',
+            evidence: '내측 신호 비율 0.61',
+          },
+        ],
+      },
+    ],
+  ])("결과 화면(%s)에 '최대 압력'·'CoP'·'정상' 문구를 렌더링하지 않는다", (_case, fixture) => {
+    const { container } = render(<MemoryRouter><ResultContent result={fixture} /></MemoryRouter>);
+    const text = container.textContent;
+    expect(text).not.toMatch(/최대 압력/);
+    expect(text).not.toMatch(/CoP/);
+    expect(text).not.toMatch(/정상/);
+    expect(text).toContain(resultTerms.peakSignal);
+    expect(text).toContain(resultTerms.estimatedCop);
   });
 
   it('이전 알고리즘에 없던 지표를 실제 0으로 오해시키지 않는다', () => {
