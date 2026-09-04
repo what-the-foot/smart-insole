@@ -57,10 +57,10 @@ class StompAuthorizationInterceptorTest {
     }
 
     @Test
-    void dropsOutboundMessagesAfterTheConnectTokenExpires() {
+    void sendsOneTokenExpiredErrorFrameAndThenDropsOutboundMessagesAfterTheConnectTokenExpires() {
         Instant now = Instant.parse("2026-09-02T07:00:00Z");
         Clock clock = mock(Clock.class);
-        when(clock.instant()).thenReturn(now, now.plusSeconds(2));
+        when(clock.instant()).thenReturn(now, now.plusSeconds(2), now.plusSeconds(3));
         when(clock.getZone()).thenReturn(ZoneOffset.UTC);
         JwtService jwtService = mock(JwtService.class);
         AuthenticatedUser user = new AuthenticatedUser(UUID.randomUUID(), "user@example.com",
@@ -74,13 +74,43 @@ class StompAuthorizationInterceptorTest {
         connect.setLeaveMutable(true);
         Message<byte[]> connectMessage = MessageBuilder.createMessage(new byte[0], connect.getMessageHeaders());
         interceptor.preSend(connectMessage, mock(org.springframework.messaging.MessageChannel.class));
+        MessageChannel channel = mock(MessageChannel.class);
 
-        SimpMessageHeaderAccessor outbound = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
-        outbound.setSessionId("session-1");
-        Message<byte[]> outboundMessage = MessageBuilder.createMessage(new byte[0], outbound.getMessageHeaders());
+        Message<?> replaced = interceptor.outboundInterceptor().preSend(brokerMessage("session-1"), channel);
 
-        org.assertj.core.api.Assertions.assertThat(interceptor.outboundInterceptor().preSend(outboundMessage,
-                mock(org.springframework.messaging.MessageChannel.class))).isNull();
+        assertThat(replaced).isNotNull();
+        StompHeaderAccessor error = StompHeaderAccessor.wrap(replaced);
+        assertThat(error.getCommand()).isEqualTo(StompCommand.ERROR);
+        assertThat(error.getMessage()).isEqualTo(StompAuthorizationInterceptor.TOKEN_EXPIRED);
+        assertThat(error.getSessionId()).isEqualTo("session-1");
+        assertThat(new String((byte[]) replaced.getPayload(), java.nio.charset.StandardCharsets.UTF_8))
+                .isEqualTo("TOKEN_EXPIRED");
+        // The ERROR frame closes the socket; nothing else is relayed to that session afterwards.
+        assertThat(interceptor.outboundInterceptor().preSend(brokerMessage("session-1"), channel)).isNull();
+    }
+
+    @Test
+    void rejectsConnectAndSubscribeWithAnExpiredTokenUsingTheTokenExpiredMessage() {
+        Instant now = Instant.parse("2026-09-02T07:00:00Z");
+        JwtService jwtService = mock(JwtService.class);
+        AuthenticatedUser expired = new AuthenticatedUser(UUID.randomUUID(), "user@example.com",
+                now.minusSeconds(1));
+        when(jwtService.parse("token")).thenReturn(expired);
+        StompAuthorizationInterceptor interceptor = new StompAuthorizationInterceptor(jwtService,
+                mock(MeasurementSessionRepository.class), Clock.fixed(now, ZoneOffset.UTC));
+        MessageChannel channel = mock(MessageChannel.class);
+
+        assertThatThrownBy(() -> interceptor.preSend(connect("session-1"), channel))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage(StompAuthorizationInterceptor.TOKEN_EXPIRED);
+
+        StompHeaderAccessor subscribe = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+        subscribe.setDestination(RealtimeService.topic(UUID.randomUUID()));
+        subscribe.setUser(new UsernamePasswordAuthenticationToken(expired, null, java.util.List.of()));
+        assertThatThrownBy(() -> interceptor.preSend(
+                MessageBuilder.createMessage(new byte[0], subscribe.getMessageHeaders()), channel))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage(StompAuthorizationInterceptor.TOKEN_EXPIRED);
     }
 
     @Test
