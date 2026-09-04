@@ -111,15 +111,15 @@ export function LiveMeasurementPage() {
       {(live.error || live.dataStale) ? <div className="realtime-notice" role="alert"><Icon name="alert" /><div><strong>{live.dataStale ? '센서 데이터가 잠시 멈췄어요.' : '실시간 연결을 확인하고 있어요.'}</strong><p>{live.error ?? 'WebSocket은 연결되어 있지만 새 데이터가 없습니다. Receiver와 인솔을 확인해 주세요.'}</p></div></div> : null}
       {quality?.flags.length ? <div className="quality-flags" aria-label="데이터 품질 알림">{quality.flags.map((flag) => <p key={flag}><Icon name="alert" />{qualityFlagLabel(flag)}</p>)}</div> : null}
 
-      <section className="heatmap-section" aria-label="양발 실시간 족압">
+      <section className="heatmap-section" aria-label="양발 실시간 센서 신호">
         <FootPressureHeatmap data={live.left} disconnected={live.leftDisconnected || live.dataStale} layout={leftLayout.data} side="LEFT" />
         <FootPressureHeatmap data={live.right} disconnected={live.rightDisconnected || live.dataStale} layout={rightLayout.data} side="RIGHT" />
       </section>
       {(leftLayout.isError || rightLayout.isError) ? <p className="form-error" role="alert"><Icon name="alert" />센서 배치를 불러오지 못했습니다. 히트맵을 정확히 표시하려면 페이지를 새로고침해 주세요.</p> : null}
 
       <section className="live-comparison content-card" aria-labelledby="balance-title">
-        <div><p className="eyebrow">BILATERAL BALANCE</p><h2 id="balance-title">현재 좌우 압력 비율</h2><p>한 시점의 상대값이며 의료적 판단 기준이 아닙니다.</p></div>
-        <div className="balance-meter" aria-label={balance ? `왼발 ${formatPercent(balance.left)}, 오른발 ${formatPercent(balance.right)}` : '아직 좌우 압력 비율을 계산할 수 없습니다.'}>
+        <div><p className="eyebrow">BILATERAL BALANCE</p><h2 id="balance-title">현재 좌우 신호 비율</h2><p>한 시점의 상대 총 신호 비교이며 의료적 판단 기준이 아닙니다.</p></div>
+        <div className="balance-meter" aria-label={balance ? `왼발 ${formatPercent(balance.left)}, 오른발 ${formatPercent(balance.right)}` : '아직 좌우 신호 비율을 계산할 수 없습니다.'}>
           <div className="balance-meter__labels"><strong>L {balance ? formatPercent(balance.left) : '—'}</strong><strong>R {balance ? formatPercent(balance.right) : '—'}</strong></div>
           <div className="balance-meter__track" aria-hidden="true"><span style={{ width: `${(balance?.left ?? 0.5) * 100}%` }} /></div>
         </div>

@@ -234,6 +234,8 @@ h3 { font-size: 1.08rem; }
 .foot-outline { fill: #f2f5f3; stroke: #cfd9d4; stroke-width: 2; }
 .sensor-point { stroke: rgba(255,255,255,.88); stroke-width: 2; }
 .sensor-value { fill: #173831; font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 700; }
+.sensor-share { fill: #173831; font-family: 'DM Sans', sans-serif; font-size: 8px; font-weight: 600; opacity: .85; }
+.sensor-label { fill: var(--color-muted); font-family: 'DM Sans', sans-serif; font-size: 7px; font-weight: 600; letter-spacing: .04em; }
 .cop-marker circle { fill: white; stroke: #153e36; stroke-width: 2; }
 .cop-marker path { fill: none; stroke: #153e36; stroke-width: 2; }
 .heatmap-overlay { position: absolute; left: 50%; bottom: 8px; display: flex; padding: 8px 11px; align-items: center; gap: 6px; color: var(--color-muted); border-radius: 9px; background: rgba(255,255,255,.92); box-shadow: var(--shadow-sm); font-size: .74rem; transform: translateX(-50%); white-space: nowrap; }
