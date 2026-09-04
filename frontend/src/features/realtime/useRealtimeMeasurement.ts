@@ -5,6 +5,7 @@ import { endpoints, WS_URL } from '../../api/config';
 import type { FootRealtimeData, RealtimePressureMessage } from '../../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { parseRealtimeMessage } from './realtimeSchema';
+import { isTokenExpiredFrame } from './stompErrors';
 
 export type RealtimeConnectionStatus =
   | 'IDLE'
@@ -12,7 +13,12 @@ export type RealtimeConnectionStatus =
   | 'CONNECTED'
   | 'RECONNECTING'
   | 'DISCONNECTED'
+  /** 서버 ERROR 프레임 TOKEN_EXPIRED. 재로그인으로 session이 바뀌면 새 토큰으로 재구독한다. */
+  | 'AUTH_EXPIRED'
   | 'ERROR';
+
+export const AUTH_EXPIRED_MESSAGE =
+  '로그인 세션이 만료되어 실시간 연결이 끊겼습니다. 다시 로그인하면 같은 세션을 새 토큰으로 다시 구독합니다.';
 
 type PresentFootData = NonNullable<FootRealtimeData>;
 
@@ -152,16 +158,27 @@ export function useRealtimeMeasurement(sessionId: string, enabled: boolean): Rea
       })();
     };
     client.onWebSocketClose = () => {
-      if (lifecycle.active) setConnectionStatus(client.active ? 'RECONNECTING' : 'DISCONNECTED');
+      if (!lifecycle.active) return;
+      // TOKEN_EXPIRED로 멈춘 뒤 이어지는 소켓 종료는 AUTH_EXPIRED 상태를 덮어쓰지 않는다.
+      setConnectionStatus((current) =>
+        current === 'AUTH_EXPIRED' ? current : client.active ? 'RECONNECTING' : 'DISCONNECTED',
+      );
     };
     client.onWebSocketError = () => {
       if (lifecycle.active) setError('실시간 연결에 문제가 있습니다. 자동으로 다시 연결합니다.');
     };
-    client.onStompError = () => {
-      if (lifecycle.active) {
-        setConnectionStatus('ERROR');
-        setError('실시간 구독을 시작하지 못했습니다. 로그인과 세션 상태를 확인해 주세요.');
+    client.onStompError = (frame) => {
+      if (!lifecycle.active) return;
+      if (isTokenExpiredFrame(frame)) {
+        // 만료 토큰으로 자동 재연결해 봐야 같은 ERROR만 반복되므로 이 클라이언트는 멈춘다.
+        // 재로그인으로 session(connectHeaders 토큰)이 바뀌면 이 effect가 다시 실행되어 재구독한다.
+        setConnectionStatus('AUTH_EXPIRED');
+        setError(AUTH_EXPIRED_MESSAGE);
+        void client.deactivate();
+        return;
       }
+      setConnectionStatus('ERROR');
+      setError('실시간 구독을 시작하지 못했습니다. 로그인과 세션 상태를 확인해 주세요.');
     };
 
     client.activate();

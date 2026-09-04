@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Icon } from '../components/Icon';
+import { SessionExpiryBanner } from '../components/SessionExpiryBanner';
 import { useAuth } from '../features/auth/AuthContext';
 
 const navItems = [
@@ -43,6 +44,7 @@ export function AppShell() {
           <button aria-expanded={menuOpen} aria-label={menuOpen ? '메뉴 닫기' : '메뉴 열기'} className="icon-button mobile-menu-button" onClick={() => setMenuOpen((value) => !value)}><Icon name={menuOpen ? 'x' : 'menu'} /></button>
         </div>
       </header>
+      <SessionExpiryBanner />
       <main className="main-content" id="main-content" tabIndex={-1}><Outlet /></main>
       <footer className="app-footer"><p>바른걸음은 관찰된 족압 패턴을 이해하도록 돕습니다. 의료 진단을 제공하지 않습니다.</p></footer>
     </div>

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { queryKeys, useDevices, useMeasurement, useSensorLayout } from '../api/queries';
@@ -7,17 +7,18 @@ import type { QualityLevel } from '../api/types';
 import { Icon } from '../components/Icon';
 import { SessionIdCopy } from '../components/SessionIdCopy';
 import { ErrorPanel, Spinner, StatePanel, StatusBadge } from '../components/StatusUi';
+import { ReauthDialog } from '../features/auth/ReauthDialog';
 import { FootPressureHeatmap, PressureLegend } from '../features/realtime/FootPressureHeatmap';
 import { useRealtimeMeasurement, type RealtimeConnectionStatus } from '../features/realtime/useRealtimeMeasurement';
 import { formatDuration, formatPercent } from '../utils/format';
 import { qualityFlagLabel, qualityLabels, receiverStatusHint, resultTerms, sessionSourceBadge } from '../utils/labels';
 
 const connectionLabel: Record<RealtimeConnectionStatus, string> = {
-  IDLE: '대기', CONNECTING: '연결 중', CONNECTED: '연결됨', RECONNECTING: '연결 복구 중', DISCONNECTED: '연결 끊김', ERROR: '연결 오류',
+  IDLE: '대기', CONNECTING: '연결 중', CONNECTED: '연결됨', RECONNECTING: '연결 복구 중', DISCONNECTED: '연결 끊김', AUTH_EXPIRED: '로그인 만료', ERROR: '연결 오류',
 };
 
 const connectionTone = (status: RealtimeConnectionStatus) =>
-  status === 'CONNECTED' ? 'positive' as const : status === 'ERROR' || status === 'DISCONNECTED' ? 'danger' as const : 'warning' as const;
+  status === 'CONNECTED' ? 'positive' as const : status === 'ERROR' || status === 'DISCONNECTED' || status === 'AUTH_EXPIRED' ? 'danger' as const : 'warning' as const;
 
 const qualityTone = (quality: QualityLevel | undefined) =>
   quality === 'GOOD' ? 'positive' as const : quality === 'POOR' ? 'danger' as const : quality ? 'warning' as const : 'neutral' as const;
@@ -30,6 +31,7 @@ export function LiveMeasurementPage() {
   const measurement = useMeasurement(sessionId, { pollWhileMeasuring: true });
   const devices = useDevices();
   const live = useRealtimeMeasurement(sessionId ?? '', measurement.data?.status === 'MEASURING');
+  const [reauthOpen, setReauthOpen] = useState(false);
 
   const leftDevice = devices.data?.find((device) => device.deviceId === measurement.data?.leftDeviceId);
   const rightDevice = devices.data?.find((device) => device.deviceId === measurement.data?.rightDeviceId);
@@ -119,7 +121,8 @@ export function LiveMeasurementPage() {
       {measurement.data.sourceType === 'SIMULATED' ? <p className="notice notice--info" role="status"><Icon name="alert" />시뮬레이션 세션입니다. 실기기 데이터가 아니며 기록에도 시뮬레이션으로 표시됩니다.</p> : null}
       <SessionIdCopy sessionId={sessionId} />
 
-      {(live.error || live.dataStale) ? <div className="realtime-notice" role="alert"><Icon name="alert" /><div><strong>{live.dataStale ? '센서 데이터가 잠시 멈췄어요.' : '실시간 연결을 확인하고 있어요.'}</strong><p>{live.error ?? 'WebSocket은 연결되어 있지만 새 데이터가 없습니다. Receiver와 인솔을 확인해 주세요.'}</p></div></div> : null}
+      {live.connectionStatus === 'AUTH_EXPIRED' ? <div className="realtime-notice" role="alert"><Icon name="alert" /><div><strong>로그인 세션이 만료되어 실시간 연결이 끊겼어요.</strong><p>{live.error}</p><button className="button button--compact" onClick={() => setReauthOpen(true)} type="button">다시 로그인</button></div></div> : (live.error || live.dataStale) ? <div className="realtime-notice" role="alert"><Icon name="alert" /><div><strong>{live.dataStale ? '센서 데이터가 잠시 멈췄어요.' : '실시간 연결을 확인하고 있어요.'}</strong><p>{live.error ?? 'WebSocket은 연결되어 있지만 새 데이터가 없습니다. Receiver와 인솔을 확인해 주세요.'}</p></div></div> : null}
+      <ReauthDialog onClose={() => setReauthOpen(false)} open={reauthOpen} reason="EXPIRED" />
       {quality?.flags.length ? <div className="quality-flags" aria-label="데이터 품질 알림">{quality.flags.map((flag) => <p key={flag}><Icon name="alert" />{qualityFlagLabel(flag)}</p>)}</div> : null}
 
       <section className="heatmap-section" aria-label="양발 실시간 센서 신호">

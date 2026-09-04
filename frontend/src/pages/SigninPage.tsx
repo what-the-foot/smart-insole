@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { Spinner } from '../components/StatusUi';
 import { useAuth } from '../features/auth/AuthContext';
+import { consumeLastSignoutReason, type SignoutReason } from '../features/auth/authSession';
 import { isBcryptLengthSupported } from '../utils/validation';
 
 interface SigninLocationState {
@@ -10,11 +11,22 @@ interface SigninLocationState {
   notice?: string;
 }
 
+// 직접 로그아웃(USER)은 안내하지 않는다.
+const signoutReasonNotices: Record<SignoutReason, string | null> = {
+  EXPIRED: '로그인 세션이 만료되어 로그아웃되었습니다. 다시 로그인하면 이어서 사용할 수 있습니다.',
+  UNAUTHORIZED: '인증이 만료되었거나 유효하지 않아 로그아웃되었습니다. 다시 로그인해 주세요.',
+  USER: null,
+};
+
 export function SigninPage() {
   const { signin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as SigninLocationState | null;
+  const [signoutNotice] = useState<string | null>(() => {
+    const reason = consumeLastSignoutReason();
+    return reason ? signoutReasonNotices[reason] : null;
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +73,7 @@ export function SigninPage() {
           <h2 id="signin-title">로그인</h2>
           <p className="muted">측정 기록과 운동 가이드를 이어서 확인하세요.</p>
           {state?.notice ? <p className="notice notice--success" role="status"><Icon name="check" />{state.notice}</p> : null}
+          {signoutNotice ? <p className="notice notice--info" role="status"><Icon name="clock" />{signoutNotice}</p> : null}
           {error ? <p className="form-error" role="alert"><Icon name="alert" />{error}</p> : null}
           <form className="form-stack" onSubmit={handleSubmit}>
             <label className="field">
