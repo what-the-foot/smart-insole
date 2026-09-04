@@ -8,6 +8,7 @@ import com.smartinsole.device.Device;
 import com.smartinsole.device.DeviceRepository;
 import com.smartinsole.global.common.DomainTypes.FootSide;
 import com.smartinsole.global.common.DomainTypes.MeasurementStatus;
+import com.smartinsole.global.common.DomainTypes.SourceType;
 import com.smartinsole.global.config.AnalysisProperties;
 import com.smartinsole.global.error.BusinessException;
 import com.smartinsole.global.error.ErrorCode;
@@ -76,7 +77,8 @@ public class MeasurementService {
         String memo = request.memo() == null ? null : request.memo().trim();
         MeasurementSession session = MeasurementSession.create(userId, left.getId(), right.getId(),
                 leftCalibration.getId(), rightCalibration.getId(), left.getSensorLayoutVersion(),
-                right.getSensorLayoutVersion(), 100, memo, Instant.now(clock));
+                right.getSensorLayoutVersion(), 100, SourceType.SIMULATED, left.getAdcMax(), memo,
+                Instant.now(clock));
         return response(sessions.save(session));
     }
 

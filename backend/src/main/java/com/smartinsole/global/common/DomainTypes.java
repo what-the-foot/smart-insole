@@ -14,4 +14,8 @@ public final class DomainTypes {
     public enum AnalysisJobStatus { PENDING, RUNNING, COMPLETED, FAILED }
     public enum SensorRegion { HEEL, MIDFOOT, FOREFOOT, TOE }
     public enum MedialLateral { MEDIAL, CENTER, LATERAL }
+    /** Frame Batch 1.1 sensor value processing mode; the MVP BLE wire is RAW only. */
+    public enum DataMode { RAW, FILTERED }
+    /** Receiver upload state reported through /receiver-status. */
+    public enum ReceiverUploadState { STREAMING, UPLOADING, UPLOAD_COMPLETE }
 }

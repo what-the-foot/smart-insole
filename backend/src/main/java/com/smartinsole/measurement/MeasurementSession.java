@@ -1,6 +1,7 @@
 package com.smartinsole.measurement;
 
 import com.smartinsole.global.common.DomainTypes.MeasurementStatus;
+import com.smartinsole.global.common.DomainTypes.ReceiverUploadState;
 import com.smartinsole.global.common.DomainTypes.SourceType;
 import com.smartinsole.global.error.BusinessException;
 import com.smartinsole.global.error.ErrorCode;
@@ -62,6 +63,23 @@ public class MeasurementSession {
     @Column(name = "source_type", nullable = false, length = 16)
     private SourceType sourceType;
 
+    /** ADC scale snapshot taken from the assigned devices when the session is created. */
+    @Column(name = "adc_max", nullable = false)
+    private int adcMax;
+
+    @Column(name = "receiver_id", length = 100)
+    private String receiverId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "receiver_state", length = 24)
+    private ReceiverUploadState receiverState;
+
+    @Column(name = "receiver_pending_batches")
+    private Integer receiverPendingBatches;
+
+    @Column(name = "receiver_observed_at")
+    private Instant receiverObservedAt;
+
     @Column(length = 500)
     private String memo;
 
@@ -88,7 +106,7 @@ public class MeasurementSession {
 
     private MeasurementSession(UUID userId, UUID leftDeviceId, UUID rightDeviceId, UUID leftCalibrationId,
                                UUID rightCalibrationId, String leftLayout, String rightLayout,
-                               int sampleRateHz, String memo, Instant now) {
+                               int sampleRateHz, SourceType sourceType, int adcMax, String memo, Instant now) {
         this.id = UUID.randomUUID();
         this.userId = userId;
         this.leftDeviceId = leftDeviceId;
@@ -99,7 +117,8 @@ public class MeasurementSession {
         this.rightSensorLayoutVersion = rightLayout;
         this.status = MeasurementStatus.CREATED;
         this.sampleRateHz = sampleRateHz;
-        this.sourceType = SourceType.SIMULATED;
+        this.sourceType = sourceType;
+        this.adcMax = adcMax;
         this.memo = memo;
         this.createdAt = now;
         this.updatedAt = now;
@@ -108,9 +127,38 @@ public class MeasurementSession {
     public static MeasurementSession create(UUID userId, UUID leftDeviceId, UUID rightDeviceId,
                                             UUID leftCalibrationId, UUID rightCalibrationId,
                                             String leftLayout, String rightLayout, int sampleRateHz,
-                                            String memo, Instant now) {
+                                            SourceType sourceType, int adcMax, String memo, Instant now) {
+        if (sourceType == null) {
+            throw new IllegalArgumentException("sourceType is required");
+        }
+        if (adcMax < 1) {
+            throw new IllegalArgumentException("adcMax must be positive");
+        }
         return new MeasurementSession(userId, leftDeviceId, rightDeviceId, leftCalibrationId,
-                rightCalibrationId, leftLayout, rightLayout, sampleRateHz, memo, now);
+                rightCalibrationId, leftLayout, rightLayout, sampleRateHz, sourceType, adcMax, memo, now);
+    }
+
+    /** Remembers the receiver that delivered the first frame batch; later batches keep the first value. */
+    public void recordReceiver(String receiverId, Instant now) {
+        if (this.receiverId == null && receiverId != null) {
+            this.receiverId = receiverId;
+            this.updatedAt = now;
+        }
+    }
+
+    /** Applies a receiver upload status report. Callers hold the row lock and verified MEASURING. */
+    public void recordReceiverStatus(String receiverId, ReceiverUploadState state, int pendingBatches,
+                                     Instant observedAt) {
+        if (receiverObservedAt != null && observedAt.isBefore(receiverObservedAt)) {
+            return;
+        }
+        if (this.receiverId == null) {
+            this.receiverId = receiverId;
+        }
+        this.receiverState = state;
+        this.receiverPendingBatches = pendingBatches;
+        this.receiverObservedAt = observedAt;
+        this.updatedAt = observedAt.isAfter(updatedAt) ? observedAt : updatedAt;
     }
 
     public void start(Instant now) {
@@ -174,6 +222,11 @@ public class MeasurementSession {
     public MeasurementStatus getStatus() { return status; }
     public int getSampleRateHz() { return sampleRateHz; }
     public SourceType getSourceType() { return sourceType; }
+    public int getAdcMax() { return adcMax; }
+    public String getReceiverId() { return receiverId; }
+    public ReceiverUploadState getReceiverState() { return receiverState; }
+    public Integer getReceiverPendingBatches() { return receiverPendingBatches; }
+    public Instant getReceiverObservedAt() { return receiverObservedAt; }
     public String getMemo() { return memo; }
     public Integer getDataQualityScore() { return dataQualityScore; }
     public Instant getStartedAt() { return startedAt; }

@@ -50,6 +50,10 @@ public class MeasurementQualityStats {
     @Column(nullable = false, length = 16)
     private QualityLevel level;
 
+    @Column(name = "first_left_sequence")
+    private Long firstLeftSequence;
+    @Column(name = "first_right_sequence")
+    private Long firstRightSequence;
     @Column(name = "last_left_sequence")
     private Long lastLeftSequence;
     @Column(name = "last_right_sequence")
@@ -138,6 +142,11 @@ public class MeasurementQualityStats {
 
     public long lastSequence(FootSide side) {
         Long value = side == FootSide.LEFT ? lastLeftSequence : lastRightSequence;
+        return value == null ? -1 : value;
+    }
+
+    public long firstSequence(FootSide side) {
+        Long value = side == FootSide.LEFT ? firstLeftSequence : firstRightSequence;
         return value == null ? -1 : value;
     }
 

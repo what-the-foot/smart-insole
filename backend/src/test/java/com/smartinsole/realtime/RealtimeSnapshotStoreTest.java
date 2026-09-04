@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import com.smartinsole.support.TestSessions;
 
 class RealtimeSnapshotStoreTest {
     @Test
@@ -32,7 +33,7 @@ class RealtimeSnapshotStoreTest {
                 "[0,0,0,0,0,0,0,0]", "[1,1,1,1,1,1,1,1]", receivedAt);
         CalibrationProfile rightCalibration = CalibrationProfile.identity(rightDevice,
                 "[0,0,0,0,0,0,0,0]", "[1,1,1,1,1,1,1,1]", receivedAt);
-        MeasurementSession session = MeasurementSession.create(UUID.randomUUID(), leftDevice, rightDevice,
+        MeasurementSession session = TestSessions.create(UUID.randomUUID(), leftDevice, rightDevice,
                 leftCalibration.getId(), rightCalibration.getId(), "layout-v1", "layout-v1", 100, null,
                 receivedAt.minusSeconds(1));
         session.start(receivedAt.minusSeconds(1));

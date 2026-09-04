@@ -8,6 +8,7 @@ import com.smartinsole.global.error.BusinessException;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import com.smartinsole.support.TestSessions;
 
 class MeasurementSessionTest {
     private final Instant now = Instant.parse("2026-09-02T07:00:00Z");
@@ -39,7 +40,7 @@ class MeasurementSessionTest {
     }
 
     private MeasurementSession session() {
-        return MeasurementSession.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+        return TestSessions.create(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), "layout-v1", "layout-v1", 100, null, now);
     }
 }

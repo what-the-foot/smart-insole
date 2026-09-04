@@ -13,7 +13,7 @@ class DeviceHeartbeatTest {
     void ignoresDelayedAndEqualHeartbeats() {
         Instant registeredAt = Instant.parse("2026-09-02T10:00:00Z");
         Device device = Device.register(UUID.randomUUID(), "SERIAL-1", "Left", FootSide.LEFT,
-                8, "layout-v1", "1.0.0", registeredAt);
+                8, "layout-v1", "1.0.0", 4095, registeredAt);
         Instant latest = registeredAt.plusSeconds(60);
 
         assertThat(device.heartbeat(true, latest)).isTrue();

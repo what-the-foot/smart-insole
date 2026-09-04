@@ -44,12 +44,21 @@ public class Device {
     @Column(name = "firmware_version", nullable = false, length = 50)
     private String firmwareVersion;
 
+    @Column(name = "adc_max", nullable = false)
+    private int adcMax;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private DeviceStatus status;
 
     @Column(name = "last_seen_at")
     private Instant lastSeenAt;
+
+    @Column(name = "last_battery_percent")
+    private Double lastBatteryPercent;
+
+    @Column(name = "last_battery_mv")
+    private Integer lastBatteryMv;
 
     @Column(name = "registered_at", nullable = false)
     private Instant registeredAt;
@@ -61,7 +70,7 @@ public class Device {
     }
 
     private Device(UUID id, UUID userId, String serialNumber, String displayName, FootSide footSide,
-                   int sensorCount, String sensorLayoutVersion, String firmwareVersion, Instant now) {
+                   int sensorCount, String sensorLayoutVersion, String firmwareVersion, int adcMax, Instant now) {
         this.id = id;
         this.userId = userId;
         this.serialNumber = serialNumber;
@@ -70,15 +79,17 @@ public class Device {
         this.sensorCount = sensorCount;
         this.sensorLayoutVersion = sensorLayoutVersion;
         this.firmwareVersion = firmwareVersion;
+        this.adcMax = adcMax;
         this.status = DeviceStatus.ACTIVE;
         this.registeredAt = now;
         this.updatedAt = now;
     }
 
     public static Device register(UUID userId, String serialNumber, String displayName, FootSide footSide,
-                                  int sensorCount, String sensorLayoutVersion, String firmwareVersion, Instant now) {
+                                  int sensorCount, String sensorLayoutVersion, String firmwareVersion, int adcMax,
+                                  Instant now) {
         return new Device(UUID.randomUUID(), userId, serialNumber, displayName, footSide, sensorCount,
-                sensorLayoutVersion, firmwareVersion, now);
+                sensorLayoutVersion, firmwareVersion, adcMax, now);
     }
 
     public boolean heartbeat(boolean connected, Instant observedAt) {
@@ -99,7 +110,10 @@ public class Device {
     public int getSensorCount() { return sensorCount; }
     public String getSensorLayoutVersion() { return sensorLayoutVersion; }
     public String getFirmwareVersion() { return firmwareVersion; }
+    public int getAdcMax() { return adcMax; }
     public DeviceStatus getStatus() { return status; }
     public Instant getLastSeenAt() { return lastSeenAt; }
+    public Double getLastBatteryPercent() { return lastBatteryPercent; }
+    public Integer getLastBatteryMv() { return lastBatteryMv; }
     public Instant getRegisteredAt() { return registeredAt; }
 }

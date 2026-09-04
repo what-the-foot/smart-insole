@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import com.smartinsole.support.TestSessions;
 
 class AnalysisResultQueryServiceTest {
     @Test
@@ -51,7 +52,7 @@ class AnalysisResultQueryServiceTest {
     }
 
     private static MeasurementSession completedSession(UUID userId, Instant now) {
-        MeasurementSession session = MeasurementSession.create(userId, UUID.randomUUID(), UUID.randomUUID(),
+        MeasurementSession session = TestSessions.create(userId, UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), "layout-v1", "layout-v1", 100, null,
                 now.minusSeconds(3));
         session.start(now.minusSeconds(2));

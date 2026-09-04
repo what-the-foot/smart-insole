@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
+import com.smartinsole.support.TestSessions;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -80,7 +81,7 @@ class AnalysisJobStateServiceConcurrencyTest {
     @Test
     void replacesAnUnfinishedRetiredVersionWithTheCurrentAlgorithmVersion() {
         Instant now = Instant.now();
-        MeasurementSession session = MeasurementSession.create(UUID.randomUUID(), UUID.randomUUID(),
+        MeasurementSession session = TestSessions.create(UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "layout-v1", "layout-v1", 100,
                 null, now.minusSeconds(1));
         session.start(now.minusSeconds(1));

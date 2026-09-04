@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
+import com.smartinsole.support.TestSessions;
 
 @SpringBootTest(properties =
         "spring.datasource.url=jdbc:h2:mem:history_latest;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
@@ -32,7 +33,7 @@ class HistoryLatestResultIntegrationTest {
     void filtersAndProjectsPatternsFromOnlyTheLatestResult() {
         Instant now = Instant.parse("2026-09-02T07:10:00Z");
         UUID userId = UUID.randomUUID();
-        MeasurementSession session = MeasurementSession.create(userId, UUID.randomUUID(), UUID.randomUUID(),
+        MeasurementSession session = TestSessions.create(userId, UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), "layout-v1", "layout-v1", 100, null,
                 now.minusSeconds(10));
         session.start(now.minusSeconds(9));

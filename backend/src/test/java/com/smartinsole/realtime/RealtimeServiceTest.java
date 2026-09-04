@@ -29,6 +29,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import com.smartinsole.support.TestSessions;
 
 class RealtimeServiceTest {
     @Test
@@ -66,7 +67,7 @@ class RealtimeServiceTest {
     }
 
     private static MeasurementSession measuringSession(Instant now) {
-        MeasurementSession session = MeasurementSession.create(UUID.randomUUID(), UUID.randomUUID(),
+        MeasurementSession session = TestSessions.create(UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "layout-v1", "layout-v1",
                 100, null, now.minusSeconds(1));
         session.start(now.minusSeconds(1));

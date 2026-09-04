@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import com.smartinsole.support.TestSessions;
 
 class QualityServiceTest {
     @Test
@@ -119,7 +120,7 @@ class QualityServiceTest {
     @Test
     void completionMarksBothSidesIncompleteWhenA_LongSessionOnlyHasOneFramePerSide() {
         Instant now = Instant.parse("2026-09-02T07:10:00Z");
-        MeasurementSession session = MeasurementSession.create(UUID.randomUUID(), UUID.randomUUID(),
+        MeasurementSession session = TestSessions.create(UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "layout-v1", "layout-v1", 100,
                 null, now.minus(Duration.ofMinutes(10)));
         session.start(now.minus(Duration.ofMinutes(10)));

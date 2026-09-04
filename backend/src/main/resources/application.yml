@@ -44,6 +44,11 @@ app:
     disconnect-timeout: 2s
   receiver:
     max-request-bytes: 1048576
+  ingestion:
+    max-frames-per-batch: 200
+    sequence-wrap-suspect-distance: 60000
+    sample-rate-mismatch-tolerance: 0.30
+    retry-after-seconds: 2
   analysis:
     algorithm-version: rule-v1.1.0
     defaults-are-functional-test-values: true

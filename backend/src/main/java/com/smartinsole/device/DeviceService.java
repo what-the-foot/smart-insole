@@ -27,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class DeviceService {
+    /** The only ADC scale accepted at registration (12-bit RAW, 4095 = saturation). */
+    public static final int SUPPORTED_ADC_MAX = 4095;
     private final DeviceRepository devices;
     private final SensorLayoutRepository layouts;
     private final CalibrationProfileRepository calibrations;
@@ -60,7 +62,7 @@ public class DeviceService {
         }
         Instant now = Instant.now(clock);
         Device device = Device.register(userId, serial, request.displayName().trim(), request.footSide(),
-                sensorCount, layout.getVersion(), request.firmwareVersion().trim(), now);
+                sensorCount, layout.getVersion(), request.firmwareVersion().trim(), SUPPORTED_ADC_MAX, now);
         try {
             devices.saveAndFlush(device);
         } catch (DataIntegrityViolationException exception) {
