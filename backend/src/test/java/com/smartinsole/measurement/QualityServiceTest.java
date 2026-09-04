@@ -40,7 +40,10 @@ class QualityServiceTest {
     @Test
     void detectsAConstant4095SensorWhileOtherSensorsChange() {
         Instant now = Instant.parse("2026-09-02T07:10:00Z");
-        UUID sessionId = UUID.randomUUID();
+        MeasurementSession session = TestSessions.create(UUID.randomUUID(), UUID.randomUUID(),
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "layout-v1", "layout-v1", 100,
+                null, now);
+        UUID sessionId = session.getId();
         ObjectMapper objectMapper = new ObjectMapper();
         MeasurementQualityRepository qualities = mock(MeasurementQualityRepository.class);
         PressureFrameRepository frames = mock(PressureFrameRepository.class);
@@ -56,7 +59,7 @@ class QualityServiceTest {
         QualityService service = new QualityService(qualities, frames, objectMapper,
                 new RealtimeProperties(10, Duration.ofSeconds(2)));
 
-        MeasurementQualityStats result = service.update(sessionId, samples, samples.size(), 0, 0, now);
+        MeasurementQualityStats result = service.update(session, samples, samples.size(), 0, 0, now);
 
         assertThat(result.flags(objectMapper)).contains("SENSOR_STUCK_OR_SATURATED");
     }
@@ -64,7 +67,10 @@ class QualityServiceTest {
     @Test
     void doesNotTreatAnUnloadedZeroChannelAsAStuckSensor() {
         Instant now = Instant.parse("2026-09-02T07:10:00Z");
-        UUID sessionId = UUID.randomUUID();
+        MeasurementSession session = TestSessions.create(UUID.randomUUID(), UUID.randomUUID(),
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "layout-v1", "layout-v1", 100,
+                null, now);
+        UUID sessionId = session.getId();
         ObjectMapper objectMapper = new ObjectMapper();
         MeasurementQualityRepository qualities = mock(MeasurementQualityRepository.class);
         PressureFrameRepository frames = mock(PressureFrameRepository.class);
@@ -80,7 +86,7 @@ class QualityServiceTest {
         QualityService service = new QualityService(qualities, frames, objectMapper,
                 new RealtimeProperties(10, Duration.ofSeconds(2)));
 
-        MeasurementQualityStats result = service.update(sessionId, samples, samples.size(), 0, 0, now);
+        MeasurementQualityStats result = service.update(session, samples, samples.size(), 0, 0, now);
 
         assertThat(result.flags(objectMapper)).doesNotContain("SENSOR_STUCK_OR_SATURATED");
     }
@@ -88,7 +94,10 @@ class QualityServiceTest {
     @Test
     void detectsAStuckSensorAcrossTenSingleFrameBatches() {
         Instant now = Instant.parse("2026-09-02T07:10:00Z");
-        UUID sessionId = UUID.randomUUID();
+        MeasurementSession session = TestSessions.create(UUID.randomUUID(), UUID.randomUUID(),
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "layout-v1", "layout-v1", 100,
+                null, now);
+        UUID sessionId = session.getId();
         UUID deviceId = UUID.randomUUID();
         ObjectMapper objectMapper = new ObjectMapper();
         MeasurementQualityRepository qualities = mock(MeasurementQualityRepository.class);
@@ -111,7 +120,7 @@ class QualityServiceTest {
                     List.of(4095, 100 + sequence, 200 + sequence, 300 + sequence,
                             400 + sequence, 500 + sequence, 600 + sequence, 700 + sequence));
             persisted.add(frame);
-            service.update(sessionId, List.of(frame), 1, 0, 0, now.plusMillis(sequence));
+            service.update(session, List.of(frame), 1, 0, 0, now.plusMillis(sequence));
         }
 
         assertThat(stored.get().flags(objectMapper)).contains("SENSOR_STUCK_OR_SATURATED");

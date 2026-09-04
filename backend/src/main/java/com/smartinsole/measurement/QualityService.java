@@ -1,6 +1,7 @@
 package com.smartinsole.measurement;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartinsole.global.common.DomainTypes.DataMode;
 import com.smartinsole.global.common.DomainTypes.FootSide;
 import com.smartinsole.global.config.RealtimeProperties;
 import com.smartinsole.measurement.IngestionDtos.PressureFrameData;
@@ -31,8 +32,13 @@ public class QualityService {
         this.realtimeProperties = realtimeProperties;
     }
 
-    public MeasurementQualityStats update(UUID sessionId, List<PressureFrameData> validFrames,
+    /**
+     * Applies one accepted batch to the session quality statistics. The session supplies the ADC scale
+     * and sample rate that the heuristics are evaluated against.
+     */
+    public MeasurementQualityStats update(MeasurementSession session, List<PressureFrameData> validFrames,
                                           int accepted, int duplicates, int rejected, Instant now) {
+        UUID sessionId = session.getId();
         MeasurementQualityStats stats = qualities.findById(sessionId)
                 .orElseGet(() -> MeasurementQualityStats.create(sessionId, now));
         Map<FootSide, List<PressureFrameData>> bySide = validFrames.stream()
@@ -44,7 +50,7 @@ public class QualityService {
         Long maxRight = null;
         Long lastLeftTime = null;
         Long lastRightTime = null;
-        Set<String> flags = new LinkedHashSet<>();
+        Set<String> flags = new LinkedHashSet<>(reportedFlags(validFrames));
         for (FootSide side : FootSide.values()) {
             List<PressureFrameData> frames = bySide.getOrDefault(side, List.of());
             if (frames.isEmpty()) continue;
@@ -122,6 +128,24 @@ public class QualityService {
         long timeBased = wholeSeconds > (maximum - 1 - partialFrames) / sampleRateHz
                 ? maximum : wholeSeconds * sampleRateHz + partialFrames + 1;
         return timeBased;
+    }
+
+    /**
+     * Quality flags derived from schemaVersion 1.1 frame metadata: the firmware's Sensor Data flag bits
+     * (bit0 FSR_ERROR, bit1 IMU_ERROR, bit2 BATTERY_LOW) and a non-RAW data mode.
+     */
+    static Set<String> reportedFlags(List<PressureFrameData> frames) {
+        Set<String> flags = new LinkedHashSet<>();
+        for (PressureFrameData frame : frames) {
+            Integer bits = frame.flags();
+            if (bits != null) {
+                if ((bits & 0b001) != 0) flags.add("FSR_ERROR_REPORTED");
+                if ((bits & 0b010) != 0) flags.add("IMU_ERROR_REPORTED");
+                if ((bits & 0b100) != 0) flags.add("BATTERY_LOW_REPORTED");
+            }
+            if (frame.dataMode() == DataMode.FILTERED) flags.add("FILTERED_DATA_MODE");
+        }
+        return flags;
     }
 
     private static boolean isOutOfOrder(List<PressureFrameData> frames) {

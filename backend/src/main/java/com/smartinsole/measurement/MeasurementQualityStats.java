@@ -130,6 +130,10 @@ public class MeasurementQualityStats {
         if (flags.contains("RIGHT_DATA_INCOMPLETE")) penalty += 10;
         if (flags.contains("LEFT_DEVICE_DISCONNECTED")) penalty += 15;
         if (flags.contains("RIGHT_DEVICE_DISCONNECTED")) penalty += 15;
+        // Device-reported conditions (schemaVersion 1.1 flags / dataMode). IMU and battery reports are
+        // informational for pressure quality and only FSR errors and filtered data reduce the score.
+        if (flags.contains("FSR_ERROR_REPORTED")) penalty += 10;
+        if (flags.contains("FILTERED_DATA_MODE")) penalty += 5;
         score = (int) Math.round(Math.max(0, Math.min(100, 100 - penalty)));
         level = score >= 85 ? QualityLevel.GOOD : score >= 60 ? QualityLevel.ACCEPTABLE : QualityLevel.POOR;
         try {
