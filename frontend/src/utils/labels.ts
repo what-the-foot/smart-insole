@@ -3,7 +3,10 @@ import type {
   DeviceResponse,
   DeviceStatus,
   MeasurementStatus,
+  ObservationPatternCode,
   QualityLevel,
+  ReceiverUploadState,
+  SourceType,
 } from '../api/types';
 
 export const measurementStatusLabels: Record<MeasurementStatus, string> = {
@@ -13,6 +16,36 @@ export const measurementStatusLabels: Record<MeasurementStatus, string> = {
   COMPLETED: '완료',
   CANCELLED: '취소됨',
   FAILED: '실패',
+};
+
+// sourceType은 자동 판별하지 않는다. 기본 DEVICE, 시뮬레이터만 SIMULATED(DEC-028).
+export const sourceTypeLabels: Record<SourceType, string> = {
+  DEVICE: '실기기',
+  SIMULATED: '시뮬레이션',
+};
+
+// 헤더 배지 문구: 예) '실기기 · 50Hz'
+export const sessionSourceBadge = (session: {
+  sourceType: SourceType;
+  sampleRateHz: number;
+}): string => `${sourceTypeLabels[session.sourceType]} · ${session.sampleRateHz}Hz`;
+
+export const receiverStateLabels: Record<ReceiverUploadState, string> = {
+  STREAMING: '스트리밍 중',
+  UPLOADING: '남은 배치 업로드 중',
+  UPLOAD_COMPLETE: '업로드 완료',
+};
+
+// 완료 버튼 옆 안내. receiverState가 null이면 수신기가 아직 보고하지 않은 것이다.
+export const receiverStatusHint = (session: {
+  receiverState?: ReceiverUploadState | null;
+  receiverPendingBatches?: number | null;
+}): string => {
+  const state = session.receiverState ?? null;
+  if (state === null) return '수신기 업로드 상태가 아직 보고되지 않았습니다.';
+  const pending = session.receiverPendingBatches ?? null;
+  const pendingText = pending === null ? '' : ` · 미전송 배치 ${pending}개`;
+  return `수신기 ${receiverStateLabels[state]}${pendingText}`;
 };
 
 export const deviceStatusLabels: Record<DeviceStatus, string> = {
@@ -68,18 +101,41 @@ export const qualityFlagLabel = (flag: string): string => {
     LEFT_DATA_INCOMPLETE: '왼발 센서 데이터가 충분하지 않습니다.',
     RIGHT_DATA_INCOMPLETE: '오른발 센서 데이터가 충분하지 않습니다.',
     INSUFFICIENT_DATA: '분석에 사용할 센서 데이터가 충분하지 않습니다.',
+    LOW_DATA_QUALITY: '데이터 품질이 낮아 분석 결과의 신뢰도가 제한됩니다.',
+    // 계약 1.1 / rule-v1.2.0에서 추가된 플래그(DEC-027, DEC-028, DEC-024)
+    SEQUENCE_WRAP_SUSPECTED: '센서 프레임 번호가 되감긴 것으로 의심됩니다. 프레임 순서 통계가 부정확할 수 있습니다.',
+    SAMPLE_RATE_MISMATCH: '실제 수신 간격이 세션 전송률 설정과 맞지 않습니다.',
+    RECEIVER_UPLOAD_INCOMPLETE: '수신기가 업로드를 끝내지 못했습니다. 일부 프레임이 누락되었을 수 있습니다.',
+    FSR_ERROR_REPORTED: '인솔이 압력 센서 오류를 보고했습니다.',
+    IMU_ERROR_REPORTED: '인솔이 관성 센서(IMU) 오류를 보고했습니다.',
+    BATTERY_LOW_REPORTED: '인솔 배터리가 낮다고 보고되었습니다.',
+    FILTERED_DATA_MODE: '필터링된 데이터 모드로 수신되어 원시 신호와 다를 수 있습니다.',
   };
   return labels[flag] ?? flag.replaceAll('_', ' ').toLocaleLowerCase('ko-KR');
 };
 
+// rule-v1.2.0 패턴 코드 6종(DEC-030). 기록 필터 옵션도 이 배열만 사용한다.
+export const observationPatternCodes: readonly ObservationPatternCode[] = [
+  'MEDIAL_LOAD_TENDENCY',
+  'LATERAL_LOAD_TENDENCY',
+  'LEFT_RIGHT_ASYMMETRY',
+  'LOW_HALLUX_SIGNAL',
+  'FOREFOOT_LOAD_TENDENCY',
+  'REARFOOT_LOAD_TENDENCY',
+];
+
 export const patternCodeLabel = (code: string): string => {
   const labels: Record<string, string> = {
-    LOW_DATA_QUALITY: '데이터 품질 확인 필요',
-    LEFT_RIGHT_ASYMMETRY: '좌우 접촉 시간 차이',
-    MEDIAL_LOAD_TENDENCY: '내측 압력 집중 경향',
-    LATERAL_LOAD_TENDENCY: '외측 압력 집중 경향',
-    HIGH_MIDFOOT_LOAD: '중족부 압력 증가 경향',
-    SHORT_CONTACT_TIME: '짧은 접촉 시간 경향',
+    MEDIAL_LOAD_TENDENCY: '내측 하중 경향',
+    LATERAL_LOAD_TENDENCY: '외측 하중 경향',
+    LEFT_RIGHT_ASYMMETRY: '좌우 비대칭 경향',
+    LOW_HALLUX_SIGNAL: '엄지 신호 낮음',
+    FOREFOOT_LOAD_TENDENCY: '전족부 하중 경향',
+    REARFOOT_LOAD_TENDENCY: '후족부 하중 경향',
+    // 이전 알고리즘(rule-v1.1.0 이하) 기록에만 남아 있는 코드. 새 결과에는 나오지 않는다.
+    LOW_DATA_QUALITY: '데이터 품질 확인 필요 (이전 분석)',
+    HIGH_MIDFOOT_LOAD: '중족부 하중 증가 경향 (이전 분석)',
+    SHORT_CONTACT_TIME: '짧은 접촉 시간 경향 (이전 분석)',
   };
   return labels[code] ?? code.replaceAll('_', ' ');
 };

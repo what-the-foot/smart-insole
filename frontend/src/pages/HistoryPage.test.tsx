@@ -6,7 +6,7 @@ import { measurementApi } from '../api/services';
 import { HistoryPage } from './HistoryPage';
 
 describe('HistoryPage', () => {
-  it('날짜·최소 품질·6개 알려진 패턴 필터를 전송하고 주요 패턴을 표시한다', async () => {
+  it('날짜·최소 품질·rule-v1.2.0 패턴 6종 필터를 전송하고 주요 패턴·sourceType을 표시한다', async () => {
     const user = userEvent.setup();
     const list = vi.spyOn(measurementApi, 'list').mockResolvedValue({
       items: [
@@ -22,7 +22,7 @@ describe('HistoryPage', () => {
           startedAt: '2026-09-01T07:00:00Z',
           endedAt: '2026-09-01T07:01:00Z',
           createdAt: '2026-09-01T07:00:00Z',
-          primaryPatternCode: 'SHORT_CONTACT_TIME',
+          primaryPatternCode: 'REARFOOT_LOAD_TENDENCY',
         },
       ],
       page: 0,
@@ -40,13 +40,25 @@ describe('HistoryPage', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByText('짧은 접촉 시간 경향')).toBeInTheDocument();
+    // 패턴 라벨은 필터 옵션에도 있으므로 기록 행 안에서 확인한다.
+    const row = await screen.findByRole('row', { name: /측정 상세 보기/ });
+    expect(within(row).getByText('후족부 하중 경향')).toBeInTheDocument();
+    expect(within(row).getByText('시뮬레이션 · 100Hz')).toBeInTheDocument();
     const pattern = screen.getByRole('combobox', { name: '관찰 패턴' });
-    expect(within(pattern).getAllByRole('option')).toHaveLength(7);
+    const options = within(pattern).getAllByRole('option');
+    expect(options).toHaveLength(7);
+    expect(options.slice(1).map((option) => option.getAttribute('value'))).toEqual([
+      'MEDIAL_LOAD_TENDENCY',
+      'LATERAL_LOAD_TENDENCY',
+      'LEFT_RIGHT_ASYMMETRY',
+      'LOW_HALLUX_SIGNAL',
+      'FOREFOOT_LOAD_TENDENCY',
+      'REARFOOT_LOAD_TENDENCY',
+    ]);
     await user.type(screen.getByLabelText('시작 날짜'), '2026-09-01');
     await user.type(screen.getByLabelText('종료 날짜'), '2026-09-02');
     await user.type(screen.getByLabelText('최소 품질 점수'), '80');
-    await user.selectOptions(pattern, 'LOW_DATA_QUALITY');
+    await user.selectOptions(pattern, 'LOW_HALLUX_SIGNAL');
     await user.click(screen.getByRole('button', { name: '필터 적용' }));
 
     await waitFor(() => {
@@ -56,7 +68,7 @@ describe('HistoryPage', () => {
         from: new Date('2026-09-01T00:00:00').toISOString(),
         to: new Date('2026-09-02T23:59:59.999').toISOString(),
         minQualityScore: 80,
-        patternCode: 'LOW_DATA_QUALITY',
+        patternCode: 'LOW_HALLUX_SIGNAL',
       });
     });
   });

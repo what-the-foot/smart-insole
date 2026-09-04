@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
-import type { AnalysisResultResponse, PatternResult } from '../../api/types';
+import type { AnalysisResultResponse, MeasurementSessionResponse, PatternResult } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { StatusBadge } from '../../components/StatusUi';
 import { formatDateTime, formatNumber, formatPercent } from '../../utils/format';
-import { qualityFlagLabel, qualityLabels, resultTerms } from '../../utils/labels';
+import { qualityFlagLabel, qualityLabels, resultTerms, sessionSourceBadge } from '../../utils/labels';
+
+type SessionMeta = Pick<MeasurementSessionResponse, 'sourceType' | 'sampleRateHz'>;
 
 const severityTone = (severity: PatternResult['severity']) =>
   severity === 'INFO' ? 'info' as const : severity === 'CAUTION' ? 'warning' as const : 'danger' as const;
@@ -12,14 +14,16 @@ const severityLabel: Record<PatternResult['severity'], string> = {
   INFO: '참고', CAUTION: '주의', RECHECK: '재확인',
 };
 
-export function ResultContent({ result }: { result: AnalysisResultResponse }) {
+export function ResultContent({ result, session }: { result: AnalysisResultResponse; session?: SessionMeta }) {
   const qualityTone = result.dataQuality.level === 'GOOD' ? 'positive' as const : result.dataQuality.level === 'POOR' ? 'danger' as const : 'warning' as const;
   return (
     <div className="result-stack">
       <section className="result-hero">
-        <div><p className="eyebrow eyebrow--light">MEASUREMENT COMPLETE</p><h1>측정 결과를 정리했어요.</h1><p>{formatDateTime(result.createdAt)} · 분석 버전 {result.algorithmVersion}</p></div>
+        <div><p className="eyebrow eyebrow--light">MEASUREMENT COMPLETE</p><h1>측정 결과를 정리했어요.</h1><p>{formatDateTime(result.createdAt)} · 분석 버전 {result.algorithmVersion}{session ? ` · ${sessionSourceBadge(session)}` : ''}</p></div>
         <div className="quality-ring" aria-label={`데이터 품질 ${result.dataQuality.score}점, ${qualityLabels[result.dataQuality.level]}`} style={{ background: `conic-gradient(var(--color-primary) ${result.dataQuality.score}%, rgba(255,255,255,.2) 0)` }}><span><strong>{result.dataQuality.score}</strong><small>품질 점수</small></span></div>
       </section>
+
+      {session?.sourceType === 'SIMULATED' ? <p className="notice notice--info" role="status"><Icon name="alert" />시뮬레이션 세션의 결과입니다. 실기기 측정이 아니므로 보행 해석에 사용하지 마세요.</p> : null}
 
       <section className="content-card" aria-labelledby="quality-title">
         <div className="section-heading"><div><p className="eyebrow">DATA QUALITY</p><h2 id="quality-title">데이터 품질</h2></div><StatusBadge tone={qualityTone}>{qualityLabels[result.dataQuality.level]}</StatusBadge></div>

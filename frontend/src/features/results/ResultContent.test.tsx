@@ -74,6 +74,17 @@ describe('결과 표시와 폴링', () => {
     expect(text).toContain(resultTerms.estimatedCop);
   });
 
+  it('세션 정보가 있으면 sourceType·sampleRateHz 배지를 표시하고 시뮬레이션 결과를 안내한다', () => {
+    const device = render(<MemoryRouter><ResultContent result={result} session={{ sourceType: 'DEVICE', sampleRateHz: 50 }} /></MemoryRouter>);
+    expect(screen.getByText(/실기기 · 50Hz/)).toBeInTheDocument();
+    expect(screen.queryByText(/시뮬레이션 세션의 결과입니다/)).not.toBeInTheDocument();
+    device.unmount();
+
+    render(<MemoryRouter><ResultContent result={result} session={{ sourceType: 'SIMULATED', sampleRateHz: 100 }} /></MemoryRouter>);
+    expect(screen.getByText(/시뮬레이션 · 100Hz/)).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('시뮬레이션 세션의 결과입니다.');
+  });
+
   it('이전 알고리즘에 없던 지표를 실제 0으로 오해시키지 않는다', () => {
     const legacy: AnalysisResultResponse = {
       ...result,

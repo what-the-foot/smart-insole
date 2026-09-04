@@ -30,7 +30,7 @@ export function ResultPage() {
   if (result.isPending) return <ProcessingPanel />;
   if (result.isError) return <ErrorPanel error={result.error} retry={() => void result.refetch()} />;
   if (result.data.kind === 'processing') return <ProcessingPanel message={result.data.data.message} />;
-  return <ResultContent result={result.data.data} />;
+  return <ResultContent result={result.data.data} session={measurement.data} />;
 }
 
 function ProcessingPanel({ message = '측정 데이터를 차분히 분석하고 있습니다.' }: { message?: string }) {

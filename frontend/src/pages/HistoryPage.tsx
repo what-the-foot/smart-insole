@@ -6,17 +6,16 @@ import type { MeasurementListParams } from '../api/services';
 import { Icon } from '../components/Icon';
 import { ErrorPanel, PageHeader, Spinner, StatePanel, StatusBadge } from '../components/StatusUi';
 import { formatDateTime, formatDuration } from '../utils/format';
-import { measurementStatusLabels, patternCodeLabel } from '../utils/labels';
+import {
+  measurementStatusLabels,
+  observationPatternCodes,
+  patternCodeLabel,
+  sourceTypeLabels,
+} from '../utils/labels';
 
 const statuses: MeasurementStatus[] = ['CREATED', 'MEASURING', 'PROCESSING', 'COMPLETED', 'CANCELLED', 'FAILED'];
-const patternCodes = [
-  'LOW_DATA_QUALITY',
-  'LEFT_RIGHT_ASYMMETRY',
-  'MEDIAL_LOAD_TENDENCY',
-  'LATERAL_LOAD_TENDENCY',
-  'HIGH_MIDFOOT_LOAD',
-  'SHORT_CONTACT_TIME',
-] as const;
+// 필터 옵션은 계약(rule-v1.2.0)의 6종만. 폐기 코드(HIGH_MIDFOOT_LOAD 등)는 계약에 없으므로 제공하지 않는다.
+const patternCodes = observationPatternCodes;
 
 type HistoryFilters = Omit<MeasurementListParams, 'page' | 'size'>;
 
@@ -112,7 +111,7 @@ export function HistoryPage() {
             <div className="history-row history-row--header" role="row"><span role="columnheader">측정 일시</span><span role="columnheader">측정 시간</span><span role="columnheader">데이터 품질</span><span role="columnheader">주요 패턴</span><span role="columnheader">상태</span><span aria-hidden="true" /></div>
             {measurements.data.items.map((session) => {
               const duration = session.startedAt && session.endedAt ? Math.max(0, new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime()) : null;
-              return <Link aria-label={`${formatDateTime(session.createdAt)} 측정 상세 보기`} className="history-row" key={session.sessionId} role="row" to={sessionTarget(session)}><span role="cell"><strong>{formatDateTime(session.createdAt)}</strong><small>{session.memo?.trim() ? session.memo : '메모 없음'}</small></span><span role="cell">{duration === null ? '—' : formatDuration(duration)}</span><span role="cell">{session.dataQualityScore === null || session.dataQualityScore === undefined ? '분석 전' : `${session.dataQualityScore}점`}</span><span role="cell">{session.primaryPatternCode ? patternCodeLabel(session.primaryPatternCode) : '표시 없음'}</span><span role="cell"><StatusBadge tone={statusTone(session.status)}>{measurementStatusLabels[session.status]}</StatusBadge></span><span role="cell"><Icon name="arrow" /></span></Link>;
+              return <Link aria-label={`${formatDateTime(session.createdAt)} 측정 상세 보기`} className="history-row" key={session.sessionId} role="row" to={sessionTarget(session)}><span role="cell"><strong>{formatDateTime(session.createdAt)}</strong><small>{session.memo?.trim() ? session.memo : '메모 없음'}</small><small className="history-source">{`${session.sourceType === 'SIMULATED' ? `${sourceTypeLabels.SIMULATED} · ` : ''}${session.sampleRateHz}Hz`}</small></span><span role="cell">{duration === null ? '—' : formatDuration(duration)}</span><span role="cell">{session.dataQualityScore === null || session.dataQualityScore === undefined ? '분석 전' : `${session.dataQualityScore}점`}</span><span role="cell">{session.primaryPatternCode ? patternCodeLabel(session.primaryPatternCode) : '표시 없음'}</span><span role="cell"><StatusBadge tone={statusTone(session.status)}>{measurementStatusLabels[session.status]}</StatusBadge></span><span role="cell"><Icon name="arrow" /></span></Link>;
             })}
           </div>
           <nav aria-label="측정 기록 페이지" className="pagination"><button className="button button--secondary" disabled={page <= 0 || measurements.isFetching} onClick={() => setPage((current) => Math.max(0, current - 1))}>이전</button><span><strong>{measurements.data.page + 1}</strong> / {Math.max(1, measurements.data.totalPages)} 페이지</span><button className="button button--secondary" disabled={page + 1 >= measurements.data.totalPages || measurements.isFetching} onClick={() => setPage((current) => current + 1)}>다음</button></nav>

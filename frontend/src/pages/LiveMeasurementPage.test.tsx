@@ -100,6 +100,80 @@ describe('LiveMeasurementPage', () => {
     expect(start).toHaveBeenNthCalledWith(2, sessionId);
   });
 
+  it('실기기·전송률 배지, 수신기 업로드 안내, 세션 ID 복사 버튼을 제공한다', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    vi.spyOn(measurementApi, 'get').mockResolvedValue({
+      sessionId,
+      status: 'MEASURING',
+      leftDeviceId,
+      rightDeviceId,
+      sampleRateHz: 50,
+      sourceType: 'DEVICE',
+      adcMax: 4095,
+      memo: null,
+      startedAt: '2026-09-02T07:01:00Z',
+      createdAt: '2026-09-02T07:00:00Z',
+      receiverState: 'STREAMING',
+      receiverPendingBatches: 2,
+    });
+    vi.spyOn(deviceApi, 'list').mockResolvedValue([]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={client}>
+        <AuthProvider>
+          <MemoryRouter initialEntries={[`/measurements/${sessionId}/live`]}>
+            <Routes>
+              <Route element={<LiveMeasurementPage />} path="/measurements/:sessionId/live" />
+            </Routes>
+          </MemoryRouter>
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('실기기 · 50Hz')).toBeInTheDocument();
+    expect(screen.getByText('수신기 스트리밍 중 · 미전송 배치 2개')).toBeInTheDocument();
+    expect(screen.queryByText(/시뮬레이션 세션입니다/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '세션 ID 복사' }));
+    expect(writeText).toHaveBeenCalledWith(sessionId);
+    expect(await screen.findByText('복사했습니다.')).toBeInTheDocument();
+  });
+
+  it('시뮬레이션 세션은 준비 화면에서도 세션 ID 복사와 안내를 제공한다', async () => {
+    vi.spyOn(measurementApi, 'get').mockResolvedValue({
+      sessionId,
+      status: 'CREATED',
+      leftDeviceId,
+      rightDeviceId,
+      sampleRateHz: 100,
+      sourceType: 'SIMULATED',
+      adcMax: 4095,
+      memo: null,
+      createdAt: '2026-09-02T07:00:00Z',
+    });
+    vi.spyOn(deviceApi, 'list').mockResolvedValue([]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={client}>
+        <AuthProvider>
+          <MemoryRouter initialEntries={[`/measurements/${sessionId}/live`]}>
+            <Routes>
+              <Route element={<LiveMeasurementPage />} path="/measurements/:sessionId/live" />
+            </Routes>
+          </MemoryRouter>
+        </AuthProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('button', { name: '측정 시작' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '세션 ID 복사' })).toBeInTheDocument();
+    expect(screen.getByText(sessionId)).toBeInTheDocument();
+    expect(screen.getByText(/시뮬레이션 세션입니다/)).toBeInTheDocument();
+  });
+
   it('기기 목록 조회 실패를 영구 로딩으로 숨기지 않고 재시도한다', async () => {
     const user = userEvent.setup();
     const measurementGet = vi.spyOn(measurementApi, 'get').mockResolvedValue({

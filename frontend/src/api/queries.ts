@@ -29,11 +29,22 @@ export const useMeasurements = (params: MeasurementListParams) =>
     placeholderData: (previous) => previous,
   });
 
-export const useMeasurement = (sessionId: string | undefined) =>
+export const MEASURING_POLL_INTERVAL_MS = 5_000;
+
+// pollWhileMeasuring: MEASURING 동안만 주기 재조회해 수신기 보고(receiverState/receiverPendingBatches)를 갱신한다.
+export const useMeasurement = (
+  sessionId: string | undefined,
+  options: { pollWhileMeasuring?: boolean } = {},
+) =>
   useQuery({
     queryKey: queryKeys.measurement(sessionId ?? 'missing'),
     queryFn: () => measurementApi.get(sessionId ?? ''),
     enabled: Boolean(sessionId),
+    refetchInterval: (query) =>
+      options.pollWhileMeasuring && query.state.data?.status === 'MEASURING'
+        ? MEASURING_POLL_INTERVAL_MS
+        : false,
+    refetchIntervalInBackground: false,
   });
 
 export const useRecommendation = (code: string | undefined) =>
