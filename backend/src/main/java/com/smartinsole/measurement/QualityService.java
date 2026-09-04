@@ -69,7 +69,9 @@ public class QualityService {
             }
             List<PressureFrameData> detectionWindow = frames.size() >= 10 ? frames
                     : framesRepository.findRecentForQuality(sessionId, side, 20);
-            if (hasStuckOrSaturatedSensor(detectionWindow)) flags.add("SENSOR_STUCK_OR_SATURATED");
+            if (hasStuckOrSaturatedSensor(detectionWindow, session.getAdcMax())) {
+                flags.add("SENSOR_STUCK_OR_SATURATED");
+            }
         }
         if (recomputeGaps) {
             // A late frame can close an older gap. The full window query is reserved for this
@@ -195,11 +197,16 @@ public class QualityService {
         return new SequenceCursor(sequence, deviceTime, newGaps, requiresGapRecompute);
     }
 
-    private static boolean hasStuckOrSaturatedSensor(List<PressureFrameData> frames) {
+    /**
+     * A sensor that stays pinned at the session ADC ceiling for the whole detection window is either
+     * saturated or electrically stuck. Constant low values are normal for an unloaded channel.
+     */
+    static boolean hasStuckOrSaturatedSensor(List<PressureFrameData> frames, int adcMax) {
         if (frames.size() < 10) return false;
         int sensors = frames.getFirst().sensorValues().size();
         for (int sensor = 0; sensor < sensors; sensor++) {
             int expected = frames.getFirst().sensorValues().get(sensor);
+            if (expected < adcMax) continue;
             boolean unchanged = true;
             for (PressureFrameData frame : frames) {
                 if (frame.sensorValues().get(sensor) != expected) {
@@ -207,22 +214,7 @@ public class QualityService {
                     break;
                 }
             }
-            if (unchanged && expected == 65535) return true;
-            if (unchanged && expected >= 4095 && anotherSensorChanges(frames, sensor)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean anotherSensorChanges(List<PressureFrameData> frames, int excludedSensor) {
-        int sensors = frames.getFirst().sensorValues().size();
-        for (int sensor = 0; sensor < sensors; sensor++) {
-            if (sensor == excludedSensor) continue;
-            int first = frames.getFirst().sensorValues().get(sensor);
-            for (PressureFrameData frame : frames) {
-                if (frame.sensorValues().get(sensor) != first) return true;
-            }
+            if (unchanged) return true;
         }
         return false;
     }

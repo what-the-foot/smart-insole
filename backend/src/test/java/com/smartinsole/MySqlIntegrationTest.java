@@ -133,7 +133,7 @@ class MySqlIntegrationTest {
 
     private static PressureFrameInput frame(DeviceResponse device, long sequence) {
         return new PressureFrameInput(device.deviceId().toString(), device.footSide().name(), sequence,
-                sequence * 10, List.of(5000, 5100, 5200, 5300, 5400, 5500, 5600, 5700));
+                sequence * 10, List.of(500, 600, 700, 800, 900, 1000, 1100, 1200));
     }
 
     private static FrameBatchRequest request(List<PressureFrameInput> frames) {

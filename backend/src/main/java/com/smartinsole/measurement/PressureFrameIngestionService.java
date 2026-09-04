@@ -82,10 +82,11 @@ public class PressureFrameIngestionService {
         assigned.put(session.getRightDeviceId(), devices.findById(session.getRightDeviceId()).orElseThrow());
 
         boolean legacySchema = "1.0".equals(request.schemaVersion());
+        int adcMax = session.getAdcMax();
         List<PressureFrameData> valid = new ArrayList<>();
         List<FrameRejection> rejections = new ArrayList<>();
         for (int index = 0; index < request.frames().size(); index++) {
-            Validation validation = validateFrame(request.frames().get(index), assigned, legacySchema);
+            Validation validation = validateFrame(request.frames().get(index), assigned, legacySchema, adcMax);
             if (validation.rejectionCode() == null) {
                 valid.add(validation.frame());
             } else {
@@ -164,7 +165,7 @@ public class PressureFrameIngestionService {
     }
 
     private static Validation validateFrame(PressureFrameInput input, Map<UUID, Device> assigned,
-                                            boolean legacySchema) {
+                                            boolean legacySchema, int adcMax) {
         if (input == null) return Validation.reject("INVALID_FRAME", "프레임이 null입니다.");
         UUID deviceId;
         try {
@@ -193,8 +194,8 @@ public class PressureFrameIngestionService {
             return Validation.reject("INVALID_SENSOR_COUNT", "기기 센서 수와 전달된 배열 길이가 다릅니다.");
         }
         for (Integer value : input.sensorValues()) {
-            if (value == null || value < 0 || value > 65535) {
-                return Validation.reject("INVALID_ADC_VALUE", "센서 값은 0에서 65535 사이여야 합니다.");
+            if (value == null || value < 0 || value > adcMax) {
+                return Validation.reject("INVALID_ADC_VALUE", "센서 값은 0에서 " + adcMax + " 사이여야 합니다.");
             }
         }
         if (legacySchema) {

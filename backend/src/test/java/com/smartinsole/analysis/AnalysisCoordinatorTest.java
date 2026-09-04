@@ -16,6 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import org.junit.jupiter.api.Test;
+import com.smartinsole.support.TestAnalysisProperties;
 
 class AnalysisCoordinatorTest {
     @Test
@@ -24,8 +25,7 @@ class AnalysisCoordinatorTest {
         Executor rejectingExecutor = command -> {
             throw new RejectedExecutionException("queue is full");
         };
-        AnalysisProperties properties = new AnalysisProperties("rule-v1.1.0", true,
-                20, 10, .6, .6, .4, 300, 60, 2);
+        AnalysisProperties properties = TestAnalysisProperties.defaults();
         AnalysisCoordinator coordinator = new AnalysisCoordinator(runner,
                 mock(AnalysisJobStateService.class), rejectingExecutor, properties);
 
@@ -100,7 +100,6 @@ class AnalysisCoordinatorTest {
     }
 
     private static AnalysisProperties properties() {
-        return new AnalysisProperties("rule-v1.1.0", true,
-                20, 10, .6, .6, .4, 300, 60, 2);
+        return TestAnalysisProperties.defaults();
     }
 }

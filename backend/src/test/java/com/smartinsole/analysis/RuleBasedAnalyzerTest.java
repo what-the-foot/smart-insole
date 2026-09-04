@@ -7,7 +7,6 @@ import com.smartinsole.analysis.AnalysisDtos.PressureDistribution;
 import com.smartinsole.calibration.CalibrationProfileRepository;
 import com.smartinsole.device.DeviceDtos.SensorPoint;
 import com.smartinsole.device.SensorLayoutRepository;
-import com.smartinsole.global.config.AnalysisProperties;
 import com.smartinsole.measurement.MeasurementQualityStats;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
@@ -15,6 +14,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import com.smartinsole.support.TestAnalysisProperties;
 
 class RuleBasedAnalyzerTest {
     @Test
@@ -87,9 +87,14 @@ class RuleBasedAnalyzerTest {
 
     @Test
     void normalizationClampsBoundariesAndDistributionIsDeterministic() {
-        assertThat(RuleBasedAnalyzer.normalize(0, 1, 1)).isZero();
-        assertThat(RuleBasedAnalyzer.normalize(65_535, 0, 1)).isEqualTo(100.0);
-        assertThat(RuleBasedAnalyzer.normalize(65_535, 0, 2)).isEqualTo(100.0);
+        assertThat(RuleBasedAnalyzer.normalize(0, 1, 1, 4095)).isZero();
+        assertThat(RuleBasedAnalyzer.normalize(4095, 0, 1, 4095)).isEqualTo(100.0);
+        assertThat(RuleBasedAnalyzer.normalize(4095, 0, 2, 4095)).isEqualTo(100.0);
+        assertThat(RuleBasedAnalyzer.normalize(819, 0, 1, 4095)).isCloseTo(20.0,
+                org.assertj.core.data.Offset.offset(1e-9));
+        // The session scale, not a fixed constant, defines 100 %: the same raw value is 25 % on a 14-bit scale.
+        assertThat(RuleBasedAnalyzer.normalize(4095, 0, 1, 16380)).isCloseTo(25.0,
+                org.assertj.core.data.Offset.offset(1e-9));
 
         List<SensorPoint> points = points();
         List<List<Double>> left = List.of(List.of(10.0, 20.0, 30.0, 40.0),
@@ -109,7 +114,7 @@ class RuleBasedAnalyzerTest {
         stats.finalizeForSession(20, Set.of("RIGHT_DATA_MISSING"), mapper, Instant.now());
         RuleBasedAnalyzer analyzer = new RuleBasedAnalyzer(mock(CalibrationProfileRepository.class),
                 mock(SensorLayoutRepository.class), mapper,
-                new AnalysisProperties("rule-v1.1.0", true, 20, 10, .6, .6, .4, 300, 60, 2));
+                TestAnalysisProperties.defaults());
 
         RuleBasedAnalyzer.QualitySummary result = analyzer.qualityForAvailability(stats, false, true, 10);
 

@@ -64,7 +64,7 @@ public class RealtimeSnapshotStore {
                 Comparator.comparingLong(PressureFrameData::deviceTimeMs)
                         .thenComparingLong(PressureFrameData::sequence).compare(first, second) >= 0 ? first : second));
         latest.forEach((side, frame) -> state.update(side, calculate(frame,
-                side == FootSide.LEFT ? context.left() : context.right(), receivedAt)));
+                side == FootSide.LEFT ? context.left() : context.right(), context.adcMax(), receivedAt)));
     }
 
     public RealtimePressureMessage message(MeasurementSession session, Instant now) {
@@ -115,13 +115,14 @@ public class RealtimeSnapshotStore {
                 value.totalPressure(), value.cop(), value.contactState(), value.lastReceivedAt());
     }
 
-    private FootRealtimeData calculate(PressureFrameData frame, FootContext context, Instant receivedAt) {
+    private FootRealtimeData calculate(PressureFrameData frame, FootContext context, int adcMax,
+                                       Instant receivedAt) {
         List<Double> normalized = new ArrayList<>(frame.sensorValues().size());
         for (int index = 0; index < frame.sensorValues().size(); index++) {
             double baseline = context.baselines().get(index);
             double scale = context.scales().get(index);
             double calibrated = Math.max(0, (frame.sensorValues().get(index) - baseline) * scale);
-            normalized.add(clamp(calibrated * 100.0 / 65535.0));
+            normalized.add(clamp(calibrated * 100.0 / adcMax));
         }
         double total = normalized.stream().mapToDouble(Double::doubleValue).sum();
         CopPoint cop = null;
@@ -135,7 +136,7 @@ public class RealtimeSnapshotStore {
             }
             cop = new CopPoint(clamp01(weightedX / total), clamp01(weightedY / total));
         }
-        ContactState contact = total >= analysisProperties.contactTotalThreshold()
+        ContactState contact = total >= analysisProperties.contactThreshold(normalized.size())
                 ? ContactState.CONTACT : ContactState.NO_CONTACT;
         return new FootRealtimeData(true, frame.sequence(), frame.deviceTimeMs(), List.copyOf(normalized), total,
                 cop, contact, receivedAt);
@@ -144,7 +145,8 @@ public class RealtimeSnapshotStore {
     private CalculationContext context(MeasurementSession session) {
         return new CalculationContext(
                 footContext(session.getLeftCalibrationId(), session.getLeftSensorLayoutVersion()),
-                footContext(session.getRightCalibrationId(), session.getRightSensorLayoutVersion()));
+                footContext(session.getRightCalibrationId(), session.getRightSensorLayoutVersion()),
+                analysisProperties.adcMaxFor(session.getAdcMax()));
     }
 
     private FootContext footContext(UUID calibrationId, String layoutVersion) {
@@ -183,6 +185,6 @@ public class RealtimeSnapshotStore {
         }
     }
 
-    private record CalculationContext(FootContext left, FootContext right) { }
+    private record CalculationContext(FootContext left, FootContext right, int adcMax) { }
     private record FootContext(List<Double> baselines, List<Double> scales, List<SensorPoint> points) { }
 }

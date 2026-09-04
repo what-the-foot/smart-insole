@@ -293,7 +293,7 @@ class ApiFlowIntegrationTest {
     private java.util.Map<String, Object> frame(String device, String side, long sequence,
                                                 long time, int sensorCount) {
         java.util.List<Integer> values = new java.util.ArrayList<>();
-        for (int index = 0; index < sensorCount; index++) values.add(5000 + index * 100);
+        for (int index = 0; index < sensorCount; index++) values.add(500 + index * 100);
         return java.util.Map.of("deviceId", device, "footSide", side, "sequence", sequence,
                 "deviceTimeMs", time, "sensorValues", values);
     }

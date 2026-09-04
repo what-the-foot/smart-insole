@@ -10,7 +10,6 @@ import com.smartinsole.calibration.CalibrationProfileRepository;
 import com.smartinsole.device.SensorLayout;
 import com.smartinsole.device.SensorLayoutRepository;
 import com.smartinsole.global.common.DomainTypes.FootSide;
-import com.smartinsole.global.config.AnalysisProperties;
 import com.smartinsole.global.config.RealtimeProperties;
 import com.smartinsole.measurement.IngestionDtos.PressureFrameData;
 import com.smartinsole.measurement.MeasurementQualityRepository;
@@ -22,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import com.smartinsole.support.TestSessions;
+import com.smartinsole.support.TestAnalysisProperties;
 
 class RealtimeSnapshotStoreTest {
     @Test
@@ -48,7 +48,7 @@ class RealtimeSnapshotStoreTest {
         when(qualities.findById(session.getId())).thenReturn(Optional.empty());
         RealtimeSnapshotStore store = new RealtimeSnapshotStore(calibrations, layouts, qualities,
                 new ObjectMapper(), new RealtimeProperties(10, Duration.ofSeconds(2)),
-                new AnalysisProperties("rule-v1.1.0", true, 20, 10, .6, .6, .4, 300, 60, 2));
+                TestAnalysisProperties.defaults());
         List<Integer> raw = List.of(0, 0, 0, 0, 0, 0, 0, 0);
         store.update(session, List.of(new PressureFrameData(leftDevice, FootSide.LEFT, 1, 10, raw)), receivedAt);
 

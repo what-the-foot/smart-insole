@@ -56,10 +56,11 @@ public class RuleBasedAnalyzer {
         contexts.put(FootSide.LEFT, context(session.getLeftCalibrationId(), session.getLeftSensorLayoutVersion()));
         contexts.put(FootSide.RIGHT, context(session.getRightCalibrationId(), session.getRightSensorLayoutVersion()));
 
+        int adcMax = properties.adcMaxFor(session.getAdcMax());
         List<NormalizedFrame> calibrated = rawFrames.stream()
                 .sorted(Comparator.comparingLong(StoredPressureFrame::deviceTimeMs)
                         .thenComparingLong(StoredPressureFrame::sequence))
-                .map(frame -> calibrate(frame, contexts.get(frame.footSide())))
+                .map(frame -> calibrate(frame, contexts.get(frame.footSide()), adcMax))
                 .toList();
         List<NormalizedFrame> filtered = movingAverage(calibrated);
         Map<FootSide, List<NormalizedFrame>> bySide = filtered.stream()
@@ -98,11 +99,11 @@ public class RuleBasedAnalyzer {
                 List.copyOf(patterns), List.copyOf(recommendations));
     }
 
-    private NormalizedFrame calibrate(StoredPressureFrame raw, FootContext context) {
+    private static NormalizedFrame calibrate(StoredPressureFrame raw, FootContext context, int adcMax) {
         List<Double> values = new ArrayList<>(raw.sensorValues().size());
         for (int index = 0; index < raw.sensorValues().size(); index++) {
             values.add(normalize(raw.sensorValues().get(index), context.baselines().get(index),
-                    context.scales().get(index)));
+                    context.scales().get(index), adcMax));
         }
         return new NormalizedFrame(raw.footSide(), raw.sequence(), raw.deviceTimeMs(), List.copyOf(values));
     }
@@ -167,9 +168,10 @@ public class RuleBasedAnalyzer {
     }
 
     private ContactSummary contacts(List<NormalizedFrame> frames, int sampleRate) {
+        int sensorCount = frames.isEmpty() ? 0 : frames.getFirst().values().size();
         return contactsFromTotals(frames.stream().map(NormalizedFrame::deviceTimeMs).toList(),
                 frames.stream().map(frame -> frame.values().stream().mapToDouble(Double::doubleValue).sum()).toList(),
-                sampleRate, properties.contactTotalThreshold());
+                sampleRate, properties.contactThreshold(sensorCount));
     }
 
     static ContactSummary contactsFromTotals(List<Long> deviceTimes, List<Double> pressureTotals,
@@ -228,9 +230,10 @@ public class RuleBasedAnalyzer {
         return mean <= 0 ? 0 : Math.abs(left - right) / mean * 100.0;
     }
 
-    static double normalize(double raw, double baseline, double scale) {
+    /** Calibrates one raw ADC value and maps it onto the 0..100 scale of the session's ADC ceiling. */
+    static double normalize(double raw, double baseline, double scale, int adcMax) {
         double calibrated = Math.max(0, (raw - baseline) * scale);
-        return Math.max(0, Math.min(100, calibrated * 100.0 / 65535.0));
+        return Math.max(0, Math.min(100, calibrated * 100.0 / adcMax));
     }
 
     static PressureDistribution pressureDistributionFromValues(

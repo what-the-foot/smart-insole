@@ -50,6 +50,11 @@ public class DeviceService {
         if (sensorCount != 6 && sensorCount != 8) {
             throw new BusinessException(ErrorCode.INVALID_SENSOR_LAYOUT);
         }
+        if (request.adcMax() != null && request.adcMax() != SUPPORTED_ADC_MAX) {
+            throw new BusinessException(ErrorCode.SEMANTIC_VALIDATION_FAILED,
+                    "adcMax는 " + SUPPORTED_ADC_MAX + "만 허용합니다.",
+                    Map.of("adcMax", request.adcMax(), "supportedAdcMax", SUPPORTED_ADC_MAX));
+        }
         SensorLayout layout = layouts.findById(request.sensorLayoutVersion())
                 .filter(SensorLayout::isActive)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_SENSOR_LAYOUT));

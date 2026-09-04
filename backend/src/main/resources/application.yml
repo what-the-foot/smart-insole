@@ -52,7 +52,12 @@ app:
   analysis:
     algorithm-version: rule-v1.1.0
     defaults-are-functional-test-values: true
-    contact-total-threshold: 20.0
+    # Fallback ADC scale only; every session snapshots devices.adc_max (4095 for new registrations).
+    adc-max-value: 4095
+    # Contact detection on the 0..100 normalised scale. With the 12-bit ADC the per-sensor value
+    # (3.75 x 8 sensors = 30.0) is the proposed value pending unloaded/standing measurements.
+    contact-total-threshold: 30.0
+    contact-total-threshold-per-sensor: 3.75
     asymmetry-threshold-percent: 10.0
     medial-ratio-threshold: 0.60
     lateral-ratio-threshold: 0.60

@@ -66,6 +66,11 @@ public class MeasurementService {
         if (left.getFootSide() != FootSide.LEFT || right.getFootSide() != FootSide.RIGHT) {
             throw new BusinessException(ErrorCode.INVALID_DEVICE_SELECTION);
         }
+        if (left.getAdcMax() != right.getAdcMax()) {
+            throw new BusinessException(ErrorCode.INVALID_DEVICE_SELECTION,
+                    "양발 기기의 adcMax가 서로 다릅니다.",
+                    Map.of("leftAdcMax", left.getAdcMax(), "rightAdcMax", right.getAdcMax()));
+        }
         CalibrationProfile leftCalibration = calibrations
                 .findFirstByDeviceIdAndActiveTrueOrderByCreatedAtDesc(left.getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_DEVICE_SELECTION,
