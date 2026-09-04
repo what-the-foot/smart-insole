@@ -19,8 +19,14 @@ public final class DeviceDtos {
             @NotNull FootSide footSide,
             @NotNull Integer sensorCount,
             @NotBlank @Size(max = 50) String sensorLayoutVersion,
-            @NotBlank @Size(max = 50) String firmwareVersion
+            @NotBlank @Size(max = 50) String firmwareVersion,
+            /** Optional; only 4095 is accepted and null defaults to it. */
+            Integer adcMax
     ) {
+        public RegisterDeviceRequest(String serialNumber, String displayName, FootSide footSide,
+                                     Integer sensorCount, String sensorLayoutVersion, String firmwareVersion) {
+            this(serialNumber, displayName, footSide, sensorCount, sensorLayoutVersion, firmwareVersion, null);
+        }
     }
 
     public record DeviceResponse(
@@ -32,13 +38,20 @@ public final class DeviceDtos {
             String sensorLayoutVersion,
             String activeCalibrationVersion,
             String firmwareVersion,
+            int adcMax,
             DeviceStatus status,
             Instant lastSeenAt,
+            Double lastBatteryPercent,
+            Integer lastBatteryMv,
             Instant registeredAt
     ) {
     }
 
-    public record SensorPoint(int index, double x, double y, String region, String medialLateral) {
+    /** {@code label} is the firmware sensor name (S01..S08); legacy layouts carry null. */
+    public record SensorPoint(int index, double x, double y, String region, String medialLateral, String label) {
+        public SensorPoint(int index, double x, double y, String region, String medialLateral) {
+            this(index, x, y, region, medialLateral, null);
+        }
     }
 
     public record SensorLayoutResponse(String version, int sensorCount, List<SensorPoint> points) {
@@ -49,7 +62,13 @@ public final class DeviceDtos {
             @NotNull Instant observedAt,
             @NotNull Boolean connected,
             Double batteryPercent,
+            Integer batteryMv,
+            @Size(max = 50) String firmwareVersion,
             Integer rssi
     ) {
+        public DeviceHeartbeatRequest(String receiverId, Instant observedAt, Boolean connected,
+                                      Double batteryPercent, Integer rssi) {
+            this(receiverId, observedAt, connected, batteryPercent, null, null, rssi);
+        }
     }
 }

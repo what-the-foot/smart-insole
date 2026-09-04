@@ -3,6 +3,7 @@ package com.smartinsole.measurement;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartinsole.global.common.DomainTypes.DataMode;
 import com.smartinsole.global.common.DomainTypes.FootSide;
+import com.smartinsole.global.common.DomainTypes.ReceiverUploadState;
 import com.smartinsole.global.config.RealtimeProperties;
 import com.smartinsole.measurement.IngestionDtos.PressureFrameData;
 import com.smartinsole.measurement.PressureFrameRepository.SideCoverage;
@@ -110,6 +111,12 @@ public class QualityService {
                     realtimeProperties.disconnectTimeout()) > 0) {
                 flags.add(prefix + "_DEVICE_DISCONNECTED");
             }
+        }
+        Integer pendingBatches = session.getReceiverPendingBatches();
+        if (session.getReceiverState() == ReceiverUploadState.UPLOADING
+                || pendingBatches != null && pendingBatches > 0) {
+            // The receiver's last status report says frames are still queued in its Outbox.
+            flags.add("RECEIVER_UPLOAD_INCOMPLETE");
         }
         long expectedTotal = expectedPerSide > Long.MAX_VALUE / 2 ? Long.MAX_VALUE : expectedPerSide * 2;
         stats.finalizeForSession(expectedTotal, flags, objectMapper, now);

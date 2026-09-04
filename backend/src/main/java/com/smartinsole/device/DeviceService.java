@@ -108,9 +108,18 @@ public class DeviceService {
                 && (request.batteryPercent() < 0 || request.batteryPercent() > 100)) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
+        if (request.batteryMv() != null && request.batteryMv() < 0) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        if (request.firmwareVersion() != null && request.firmwareVersion().isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
         Device device = devices.findByIdForUpdate(deviceId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
-        device.heartbeat(request.connected(), request.observedAt());
+        if (device.heartbeat(request.connected(), request.observedAt())) {
+            device.recordBattery(request.batteryPercent(), request.batteryMv());
+            device.recordFirmwareVersion(request.firmwareVersion());
+        }
     }
 
     private String numericArray(int count, double value) {
@@ -128,7 +137,8 @@ public class DeviceService {
     private DeviceResponse response(Device device, String activeCalibrationVersion) {
         return new DeviceResponse(device.getId(), device.getSerialNumber(), device.getDisplayName(),
                 device.getFootSide(), device.getSensorCount(), device.getSensorLayoutVersion(),
-                activeCalibrationVersion, device.getFirmwareVersion(), device.getStatus(), device.getLastSeenAt(),
+                activeCalibrationVersion, device.getFirmwareVersion(), device.getAdcMax(), device.getStatus(),
+                device.getLastSeenAt(), device.getLastBatteryPercent(), device.getLastBatteryMv(),
                 device.getRegisteredAt());
     }
 }

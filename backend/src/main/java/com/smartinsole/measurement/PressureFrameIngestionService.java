@@ -14,6 +14,7 @@ import com.smartinsole.measurement.IngestionDtos.FrameRejection;
 import com.smartinsole.measurement.IngestionDtos.FramesPersistedEvent;
 import com.smartinsole.measurement.IngestionDtos.PressureFrameData;
 import com.smartinsole.measurement.IngestionDtos.PressureFrameInput;
+import com.smartinsole.measurement.IngestionDtos.ReceiverStatusRequest;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
@@ -106,6 +107,23 @@ public class PressureFrameIngestionService {
         Map<UUID, Long> lastSequences = frames.findMaxSequences(sessionId, validDeviceIds);
         return new FrameBatchResponse(inserted.acceptedCount(), inserted.duplicateCount(), rejections.size(),
                 List.copyOf(rejections), Map.copyOf(lastSequences), receivedAt);
+    }
+
+    /**
+     * Applies a receiver upload status report. The row lock prevents an @Version conflict with a
+     * concurrent frame batch; only MEASURING sessions accept reports (409 SESSION_NOT_MEASURING otherwise).
+     */
+    @Transactional
+    public void recordReceiverStatus(UUID sessionId, ReceiverStatusRequest request) {
+        MeasurementSession session = sessions.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (session.getStatus() != MeasurementStatus.MEASURING) {
+            throw new BusinessException(ErrorCode.SESSION_NOT_MEASURING,
+                    ErrorCode.SESSION_NOT_MEASURING.defaultMessage(),
+                    Map.of("currentStatus", session.getStatus().name()));
+        }
+        session.recordReceiverStatus(request.receiverId().trim(), request.state(), request.pendingBatchCount(),
+                request.observedAt());
     }
 
     private BusinessException notMeasuring(MeasurementSession session, FrameBatchRequest request) {

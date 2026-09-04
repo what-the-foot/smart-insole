@@ -1,6 +1,7 @@
 package com.smartinsole.measurement;
 
 import com.smartinsole.global.common.DomainTypes.MeasurementStatus;
+import com.smartinsole.global.common.DomainTypes.ReceiverUploadState;
 import com.smartinsole.global.common.DomainTypes.SourceType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -27,11 +28,14 @@ public final class MeasurementDtos {
             UUID rightDeviceId,
             int sampleRateHz,
             SourceType sourceType,
+            int adcMax,
             String memo,
             Integer dataQualityScore,
             Instant startedAt,
             Instant endedAt,
-            Instant createdAt
+            Instant createdAt,
+            ReceiverUploadState receiverState,
+            Integer receiverPendingBatches
     ) {
     }
 

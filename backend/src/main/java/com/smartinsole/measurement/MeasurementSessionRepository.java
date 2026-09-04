@@ -23,6 +23,13 @@ public interface MeasurementSessionRepository extends JpaRepository<MeasurementS
     Page<MeasurementSession> findAllByUserId(UUID userId, Pageable pageable);
     Page<MeasurementSession> findAllByUserIdAndStatus(UUID userId, MeasurementStatus status, Pageable pageable);
     List<MeasurementSession> findAllByStatus(MeasurementStatus status);
+    List<MeasurementSession> findAllByStatusOrderByCreatedAtDesc(MeasurementStatus status);
+
+    @Query("SELECT session FROM MeasurementSession session WHERE session.status = :status "
+            + "AND (session.leftDeviceId = :deviceId OR session.rightDeviceId = :deviceId) "
+            + "ORDER BY session.createdAt DESC")
+    List<MeasurementSession> findAllByStatusAndDevice(@Param("status") MeasurementStatus status,
+                                                      @Param("deviceId") UUID deviceId);
 
     @Query(value = """
             SELECT DISTINCT s.* FROM measurement_sessions s

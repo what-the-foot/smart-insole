@@ -2,6 +2,13 @@ package com.smartinsole.measurement;
 
 import com.smartinsole.global.common.DomainTypes.DataMode;
 import com.smartinsole.global.common.DomainTypes.FootSide;
+import com.smartinsole.global.common.DomainTypes.MeasurementStatus;
+import com.smartinsole.global.common.DomainTypes.ReceiverUploadState;
+import com.smartinsole.global.common.DomainTypes.SourceType;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -117,5 +124,47 @@ public final class IngestionDtos {
         public FramesPersistedEvent {
             frames = List.copyOf(frames);
         }
+    }
+
+    /** One assigned device as seen by the receiver (GET /internal/v1/measurement-sessions/{id}). */
+    public record ReceiverSessionDevice(
+            UUID deviceId,
+            String serialNumber,
+            FootSide footSide,
+            int sensorCount,
+            String sensorLayoutVersion,
+            int adcMax,
+            String firmwareVersion
+    ) {
+    }
+
+    public record ReceiverSessionResponse(
+            UUID sessionId,
+            MeasurementStatus status,
+            int sampleRateHz,
+            SourceType sourceType,
+            int adcMax,
+            Instant startedAt,
+            Instant endedAt,
+            ReceiverSessionDevice left,
+            ReceiverSessionDevice right,
+            ReceiverUploadState receiverState,
+            Integer receiverPendingBatches
+    ) {
+    }
+
+    public record ReceiverSessionListResponse(List<ReceiverSessionResponse> items) {
+        public ReceiverSessionListResponse {
+            items = List.copyOf(items);
+        }
+    }
+
+    /** POST /internal/v1/measurement-sessions/{id}/receiver-status body. */
+    public record ReceiverStatusRequest(
+            @NotBlank @Size(max = 100) String receiverId,
+            @NotNull ReceiverUploadState state,
+            @NotNull @Min(0) Integer pendingBatchCount,
+            @NotNull Instant observedAt
+    ) {
     }
 }

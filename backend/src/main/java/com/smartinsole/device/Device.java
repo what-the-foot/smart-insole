@@ -102,6 +102,23 @@ public class Device {
         return true;
     }
 
+    /** Stores the battery values of an accepted heartbeat; a null value leaves the previous reading. */
+    public void recordBattery(Double batteryPercent, Integer batteryMv) {
+        if (batteryPercent != null) {
+            this.lastBatteryPercent = batteryPercent;
+        }
+        if (batteryMv != null) {
+            this.lastBatteryMv = batteryMv;
+        }
+    }
+
+    /** Updates the firmware version reported by the device Status characteristic. */
+    public void recordFirmwareVersion(String reportedVersion) {
+        if (reportedVersion != null && !reportedVersion.isBlank()) {
+            this.firmwareVersion = reportedVersion.trim();
+        }
+    }
+
     public UUID getId() { return id; }
     public UUID getUserId() { return userId; }
     public String getSerialNumber() { return serialNumber; }

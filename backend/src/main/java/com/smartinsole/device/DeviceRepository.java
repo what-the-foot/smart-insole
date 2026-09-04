@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface DeviceRepository extends JpaRepository<Device, UUID> {
     boolean existsBySerialNumber(String serialNumber);
+    Optional<Device> findBySerialNumber(String serialNumber);
     List<Device> findAllByUserIdOrderByRegisteredAtDesc(UUID userId);
     Optional<Device> findByIdAndUserId(UUID id, UUID userId);
 

@@ -134,6 +134,7 @@ public class MeasurementQualityStats {
         // informational for pressure quality and only FSR errors and filtered data reduce the score.
         if (flags.contains("FSR_ERROR_REPORTED")) penalty += 10;
         if (flags.contains("FILTERED_DATA_MODE")) penalty += 5;
+        if (flags.contains("RECEIVER_UPLOAD_INCOMPLETE")) penalty += 10;
         score = (int) Math.round(Math.max(0, Math.min(100, 100 - penalty)));
         level = score >= 85 ? QualityLevel.GOOD : score >= 60 ? QualityLevel.ACCEPTABLE : QualityLevel.POOR;
         try {

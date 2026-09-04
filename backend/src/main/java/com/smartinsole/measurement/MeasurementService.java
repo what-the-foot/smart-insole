@@ -166,8 +166,10 @@ public class MeasurementService {
 
     public static MeasurementSessionResponse response(MeasurementSession session) {
         return new MeasurementSessionResponse(session.getId(), session.getStatus(), session.getLeftDeviceId(),
-                session.getRightDeviceId(), session.getSampleRateHz(), session.getSourceType(), session.getMemo(),
-                session.getDataQualityScore(), session.getStartedAt(), session.getEndedAt(), session.getCreatedAt());
+                session.getRightDeviceId(), session.getSampleRateHz(), session.getSourceType(),
+                session.getAdcMax(), session.getMemo(), session.getDataQualityScore(), session.getStartedAt(),
+                session.getEndedAt(), session.getCreatedAt(), session.getReceiverState(),
+                session.getReceiverPendingBatches());
     }
 
     private static MeasurementHistoryItem historyItem(MeasurementSession session, String primaryPatternCode) {
