@@ -18,6 +18,7 @@ const initialForm: RegisterDeviceRequest = {
   sensorCount: 8,
   sensorLayoutVersion: 'layout-v1',
   firmwareVersion: '0.1.0',
+  adcMax: 4095,
 };
 
 export function DevicesPage() {

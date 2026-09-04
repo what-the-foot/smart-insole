@@ -11,8 +11,11 @@ export type DeviceStatus = components['schemas']['DeviceStatus'];
 export type FootSide = components['schemas']['FootSide'];
 export type SensorPoint = components['schemas']['SensorPoint'];
 export type SensorLayoutResponse = components['schemas']['SensorLayoutResponse'];
+export type SourceType = components['schemas']['SourceType'];
+export type ReceiverUploadState = components['schemas']['ReceiverUploadState'];
 export type CreateMeasurementSessionRequest =
   components['schemas']['CreateMeasurementSessionRequest'];
+export type SampleRateHz = CreateMeasurementSessionRequest['sampleRateHz'];
 export type MeasurementSessionResponse = components['schemas']['MeasurementSessionResponse'];
 export type MeasurementSessionPage = components['schemas']['MeasurementSessionPage'];
 export type MeasurementHistoryItem = components['schemas']['MeasurementHistoryItem'];
@@ -24,9 +27,16 @@ export type QualityLevel = components['schemas']['QualityLevel'];
 export type ContactState = components['schemas']['ContactState'];
 export type AnalysisPendingResponse = components['schemas']['AnalysisPendingResponse'];
 export type AnalysisResultResponse = components['schemas']['AnalysisResultResponse'];
+export type DataQualityResult = components['schemas']['DataQualityResult'];
+export type PressureDistribution = components['schemas']['PressureDistribution'];
+export type SensorSharePct = components['schemas']['SensorSharePct'];
 export type RecommendationSummary = components['schemas']['RecommendationSummary'];
 export type RecommendationDetailResponse = components['schemas']['RecommendationDetailResponse'];
 export type PatternResult = components['schemas']['PatternResult'];
+export type PatternSeverity = components['schemas']['PatternSeverity'];
+export type ObservationLevel = components['schemas']['ObservationLevel'];
+export type ObservationSummaryItem = components['schemas']['ObservationSummaryItem'];
+export type ObservationPatternCode = ObservationSummaryItem['code'];
 export type MeasurementListQuery = NonNullable<
   operations['listMeasurementSessions']['parameters']['query']
 >;

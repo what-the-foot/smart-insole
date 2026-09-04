@@ -71,6 +71,19 @@ describe('실시간 메시지 검증', () => {
     expect(parseRealtimeValue(withOffset).serverTime).toBe(withOffset.serverTime);
   });
 
+  it('계약 1.1의 새 품질 flag 이름을 자유 문자열로 허용한다', () => {
+    const flags = [
+      'SEQUENCE_WRAP_SUSPECTED',
+      'SAMPLE_RATE_MISMATCH',
+      'RECEIVER_UPLOAD_INCOMPLETE',
+      'FSR_ERROR_REPORTED',
+      'IMU_ERROR_REPORTED',
+      'BATTERY_LOW_REPORTED',
+      'FILTERED_DATA_MODE',
+    ];
+    expect(parseRealtimeValue({ ...valid, quality: { ...valid.quality, flags } }).quality.flags).toEqual(flags);
+  });
+
   it('중복된 품질 flag를 거부한다', () => {
     const malformed = {
       ...valid,

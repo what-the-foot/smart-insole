@@ -21,6 +21,7 @@ export function NewMeasurementPage() {
         leftDeviceId,
         rightDeviceId,
         sampleRateHz: 100,
+        sourceType: 'DEVICE',
         memo: memo.trim() || null,
       }),
     onSuccess: (session) => void navigate(`/measurements/${session.sessionId}/live`),

@@ -5,6 +5,9 @@ import type {
   RealtimePressureMessage,
 } from '../../api/types';
 
+// 계약(contracts/openapi.yaml, RealtimePressureMessage 1.0)의 exact-key 배열.
+// 계약이 바뀌면 `npm run api:generate` 후 이 배열과 realtimeSchema.test.ts를 함께 갱신한다.
+// openapi 1.1.0에서 실시간 메시지 스키마는 바뀌지 않았다(품질 flags는 자유 문자열).
 const qualityLevels: readonly QualityLevel[] = ['GOOD', 'ACCEPTABLE', 'POOR'];
 const contactStates: readonly ContactState[] = ['NO_CONTACT', 'CONTACT', 'UNKNOWN'];
 const rootKeys = [

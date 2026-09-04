@@ -15,6 +15,7 @@ describe('ResultPage', () => {
       rightDeviceId: '64eb539f-4b48-44f6-bb30-d26861463ca6',
       sampleRateHz: 100,
       sourceType: 'SIMULATED',
+      adcMax: 4095,
       memo: null,
       endedAt: '2026-09-02T07:01:00Z',
       createdAt: '2026-09-02T07:00:00Z',

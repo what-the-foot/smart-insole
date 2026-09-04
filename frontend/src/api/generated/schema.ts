@@ -227,6 +227,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/measurement-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 수신기용 측정 중 세션 목록
+         * @description status는 MEASURING만 허용합니다. deviceSerial을 주면 좌우 기기 중 하나의 serialNumber가 일치하는 세션만 반환합니다. 빈 items 배열을 허용합니다.
+         */
+        get: operations["listReceiverSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/measurement-sessions/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 수신기용 세션 조회
+         * @description 수신기가 세션에 배정된 기기 식별자·센서 수·adcMax·sampleRateHz를 확정하고 상태 전이를 폴링하는 데 사용합니다.
+         */
+        get: operations["getReceiverSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/measurement-sessions/{sessionId}/receiver-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 수신기 업로드 상태 보고
+         * @description MEASURING 세션에서만 허용됩니다. best-effort 보고이며 수신기는 실패해도 재시도하지 않습니다.
+         */
+        post: operations["reportReceiverStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v1/devices/{deviceId}/heartbeat": {
         parameters: {
             query?: never;
@@ -252,8 +312,23 @@ export interface components {
         FootSide: "LEFT" | "RIGHT";
         /** @enum {string} */
         MeasurementStatus: "CREATED" | "MEASURING" | "PROCESSING" | "COMPLETED" | "CANCELLED" | "FAILED";
-        /** @enum {string} */
+        /**
+         * @description 자동 판별하지 않습니다. 기본값은 DEVICE이며 시뮬레이터(mock receiver, e2e 스크립트, 개발용 UI)만 SIMULATED를 명시합니다.
+         * @enum {string}
+         */
         SourceType: "DEVICE" | "SIMULATED";
+        /**
+         * @description 프레임의 센서 값 처리 모드. MVP BLE 와이어는 RAW 전용입니다.
+         * @enum {string}
+         */
+        DataMode: "RAW" | "FILTERED";
+        /** @enum {string} */
+        ReceiverUploadState: "STREAMING" | "UPLOADING" | "UPLOAD_COMPLETE";
+        /**
+         * @description 유효 걸음(접촉 구간) 창 기준 발생 비율로 정한 관찰 단계. 질환 판단이 아닙니다.
+         * @enum {string}
+         */
+        ObservationLevel: "NOT_OBSERVED" | "PARTIALLY_OBSERVED" | "REPEATEDLY_OBSERVED";
         /** @enum {string} */
         DeviceStatus: "ACTIVE" | "INACTIVE" | "DISCONNECTED" | "CALIBRATION_REQUIRED";
         /** @enum {string} */
@@ -309,6 +384,12 @@ export interface components {
             sensorCount: 6 | 8;
             sensorLayoutVersion: string;
             firmwareVersion: string;
+            /**
+             * @description 기기의 ADC 최댓값. 현재 허용값은 4095뿐이며 생략하면 4095입니다.
+             * @default 4095
+             * @enum {integer}
+             */
+            adcMax: 4095;
         };
         DeviceResponse: {
             /** Format: uuid */
@@ -320,14 +401,21 @@ export interface components {
             sensorCount: 6 | 8;
             sensorLayoutVersion: string;
             firmwareVersion: string;
+            /** @description 기기 등록 시 확정한 ADC 최댓값. V5 이전에 등록된 레거시 기기는 65535로 백필됩니다. */
+            adcMax: number;
             activeCalibrationVersion: string | null;
             status: components["schemas"]["DeviceStatus"];
             /** Format: date-time */
             lastSeenAt?: string | null;
+            /** @description 마지막 heartbeat의 배터리 퍼센트. 미보정(255)은 수신기가 null로 보냅니다. */
+            lastBatteryPercent?: number | null;
+            lastBatteryMv?: number | null;
             /** Format: date-time */
             registeredAt: string;
         };
         SensorPoint: {
+            /** @description 펌웨어 센서 라벨(S01..S08). index = S번호 - 1 = MUX 채널. 레거시 레이아웃은 null. */
+            label?: string | null;
             index: number;
             /** @description Foot-local horizontal coordinate from medial (0) to lateral (1). The UI mirrors LEFT-foot coordinates for a bilateral wearer-facing view. */
             x: number;
@@ -358,8 +446,16 @@ export interface components {
             leftDeviceId: string;
             /** Format: uuid */
             rightDeviceId: string;
-            /** @enum {integer} */
-            sampleRateHz: 100;
+            /**
+             * @description 전송률의 단일 출처. BLE 전송 50Hz(측정 100Hz 분주) 또는 100Hz. UI 기본값은 50.
+             * @enum {integer}
+             */
+            sampleRateHz: 50 | 100;
+            /**
+             * @description 생략하면 DEVICE. 시뮬레이터만 SIMULATED를 명시합니다.
+             * @default DEVICE
+             */
+            sourceType: components["schemas"]["SourceType"];
             memo?: string | null;
         };
         MeasurementSessionResponse: {
@@ -372,6 +468,8 @@ export interface components {
             rightDeviceId: string;
             sampleRateHz: number;
             sourceType: components["schemas"]["SourceType"];
+            /** @description 세션 생성 시 기기에서 스냅샷한 ADC 최댓값. */
+            adcMax: number;
             memo?: string | null;
             dataQualityScore?: number | null;
             /** Format: date-time */
@@ -380,6 +478,10 @@ export interface components {
             endedAt?: string | null;
             /** Format: date-time */
             createdAt: string;
+            /** @description 수신기가 마지막으로 보고한 업로드 상태. 보고 전이면 null. */
+            receiverState?: components["schemas"]["ReceiverUploadState"] | null;
+            /** @description 수신기가 마지막으로 보고한 미전송 배치 수. */
+            receiverPendingBatches?: number | null;
         };
         MeasurementSessionPage: {
             items: components["schemas"]["MeasurementHistoryItem"][];
@@ -408,20 +510,51 @@ export interface components {
             createdAt: string;
             primaryPatternCode: string | null;
         };
+        /** @description int16 3축 벡터 (x, y, z). */
+        ImuVector: number[];
+        /**
+         * @description schemaVersion 1.0 프레임은 필수 5개 필드만 허용합니다. 1.1 선택 필드를 1.0 배치에 넣으면
+         *     해당 프레임은 `SCHEMA_FIELD_NOT_ALLOWED`로 거부됩니다. 값이 null인 키는 생략합니다.
+         */
         PressureFrameInput: {
             /** Format: uuid */
             deviceId: string;
             footSide: components["schemas"]["FootSide"];
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description 단조 증가 u32. 수신기가 v1 u16을 펼쳐 보냅니다.
+             */
             sequence: number;
             /** Format: int64 */
             deviceTimeMs: number;
+            /** @description RAW ADC 값. 상한은 세션 adcMax(현재 4095)이며 4095는 포화를 뜻합니다. */
             sensorValues: number[] & (unknown | unknown);
+            /** @description (1.1) BLE 패킷 프로토콜 버전. 1 = Frame A/B, 2 = 단일 패킷. */
+            protocolVersion?: number;
+            /**
+             * Format: date-time
+             * @description (1.1) 프레임별 수신기(PC) 수신 시각. 좌우 정렬 기준.
+             */
+            receivedAt?: string;
+            /** @description (1.1) v2에서는 RAW 고정. */
+            dataMode?: components["schemas"]["DataMode"];
+            /** @description (1.1) 기기 측 영점 보정 여부. v2에서는 false 고정. */
+            calibrated?: boolean;
+            /** @description (1.1) IMU 값 유효 여부. flags의 IMU_ERROR(bit1)가 켜지면 백엔드가 false로 정규화합니다. */
+            imuAvailable?: boolean;
+            /** @description (1.1) 가속도 mg. */
+            accelMg?: components["schemas"]["ImuVector"];
+            /** @description (1.1) 각속도 0.1 °/s. */
+            gyroDps10?: components["schemas"]["ImuVector"];
+            /** @description (1.1, protocolVersion 2 이상) bit0 FSR_ERROR, bit1 IMU_ERROR, bit2 BATTERY_LOW, bit3..7 예약 0. */
+            flags?: number;
         };
         FrameBatchRequest: {
             /** @enum {string} */
-            schemaVersion: "1.0";
+            schemaVersion: "1.0" | "1.1";
             receiverId: string;
+            /** @description (1.1) 수신기 Outbox 배치 식별자. 멱등성은 여전히 (session, device, sequence) 기준입니다. */
+            batchId?: string;
             /** Format: date-time */
             sentAt: string;
             frames: components["schemas"]["PressureFrameInput"][];
@@ -447,8 +580,53 @@ export interface components {
             /** Format: date-time */
             observedAt: string;
             connected: boolean;
+            /** @description Status battery_pct. 255(미보정/미측정)는 수신기가 null로 보냅니다. */
             batteryPercent?: number | null;
+            /** @description Status battery_mv. */
+            batteryMv?: number | null;
+            /** @description Status fw_major.fw_minor.fw_patch (예 0.2.0). 기기 firmwareVersion을 갱신합니다. */
+            firmwareVersion?: string | null;
             rssi?: number | null;
+        };
+        ReceiverSessionDevice: {
+            /** Format: uuid */
+            deviceId: string;
+            /** @description SMART-INSOLE-{L|R}-{serial u32 hex 8자리} 규칙 권장. 수신기는 스캔 결과와 대조합니다. */
+            serialNumber: string;
+            footSide: components["schemas"]["FootSide"];
+            /** @enum {integer} */
+            sensorCount: 6 | 8;
+            sensorLayoutVersion: string;
+            adcMax: number;
+            firmwareVersion: string | null;
+        };
+        ReceiverSessionResponse: {
+            /** Format: uuid */
+            sessionId: string;
+            status: components["schemas"]["MeasurementStatus"];
+            /** @enum {integer} */
+            sampleRateHz: 50 | 100;
+            sourceType: components["schemas"]["SourceType"];
+            /** @description 세션 adcMax 스냅샷. left/right.adcMax와 같습니다. */
+            adcMax: number;
+            /** Format: date-time */
+            startedAt: string | null;
+            /** Format: date-time */
+            endedAt: string | null;
+            left: components["schemas"]["ReceiverSessionDevice"];
+            right: components["schemas"]["ReceiverSessionDevice"];
+            receiverState: components["schemas"]["ReceiverUploadState"] | null;
+            receiverPendingBatches: number | null;
+        };
+        ReceiverSessionListResponse: {
+            items: components["schemas"]["ReceiverSessionResponse"][];
+        };
+        ReceiverStatusRequest: {
+            receiverId: string;
+            state: components["schemas"]["ReceiverUploadState"];
+            pendingBatchCount: number;
+            /** Format: date-time */
+            observedAt: string;
         };
         CopPoint: {
             x: number;
@@ -497,6 +675,12 @@ export interface components {
             score: number;
             level: components["schemas"]["QualityLevel"];
             missingFrameRate: number;
+            /**
+             * @description 품질 플래그. 예: SEQUENCE_GAP, OUT_OF_ORDER, DEVICE_TIME_JUMP, SENSOR_STUCK_OR_SATURATED,
+             *     LEFT/RIGHT_DATA_MISSING, LEFT/RIGHT_DATA_INCOMPLETE, LEFT/RIGHT_DEVICE_DISCONNECTED, INSUFFICIENT_DATA,
+             *     SEQUENCE_WRAP_SUSPECTED, SAMPLE_RATE_MISMATCH, RECEIVER_UPLOAD_INCOMPLETE,
+             *     FSR_ERROR_REPORTED, IMU_ERROR_REPORTED, BATTERY_LOW_REPORTED, FILTERED_DATA_MODE, LOW_DATA_QUALITY.
+             */
             flags: string[];
         };
         GaitSummary: {
@@ -528,13 +712,38 @@ export interface components {
             leftMeanCoP: components["schemas"]["CopPoint"] | null;
             /** @description Pressure-weighted mean right center of pressure, or null when unavailable. */
             rightMeanCoP: components["schemas"]["CopPoint"] | null;
+            /** @description (rule-v1.2.0) 접촉 프레임 평균의 센서별 share(센서/전체합×100), 레이아웃 index 순, 합 100. 접촉 프레임이 없거나 이전 결과면 null. */
+            leftSensorSharePct?: components["schemas"]["SensorSharePct"] | null;
+            /** @description (rule-v1.2.0) 오른발 센서별 share. 접촉 프레임이 없거나 이전 결과면 null. */
+            rightSensorSharePct?: components["schemas"]["SensorSharePct"] | null;
         };
+        SensorSharePct: number[] & (unknown | unknown);
+        /**
+         * @description rule-v1.2.0 패턴 코드는 MEDIAL_LOAD_TENDENCY, LATERAL_LOAD_TENDENCY, LEFT_RIGHT_ASYMMETRY,
+         *     LOW_HALLUX_SIGNAL, FOREFOOT_LOAD_TENDENCY, REARFOOT_LOAD_TENDENCY 6종의 부분집합이며
+         *     PARTIALLY_OBSERVED 또는 REPEATEDLY_OBSERVED만 patterns에 포함됩니다.
+         */
         PatternResult: {
             code: string;
             severity: components["schemas"]["PatternSeverity"];
             title: string;
             message: string;
             evidence: string;
+            /** @description rule-v1.2.0 이상. 이전 결과는 null. */
+            observationLevel?: components["schemas"]["ObservationLevel"] | null;
+            /** @description observedCount / windowCount. 이전 결과는 null. */
+            occurrenceRate?: number | null;
+            observedCount?: number | null;
+            /** @description 판정에 사용한 창(유효 걸음) 수. LEFT_RIGHT_ASYMMETRY는 좌우 걸음 쌍 수. */
+            windowCount?: number | null;
+        };
+        ObservationSummaryItem: {
+            /** @enum {string} */
+            code: "MEDIAL_LOAD_TENDENCY" | "LATERAL_LOAD_TENDENCY" | "LEFT_RIGHT_ASYMMETRY" | "LOW_HALLUX_SIGNAL" | "FOREFOOT_LOAD_TENDENCY" | "REARFOOT_LOAD_TENDENCY";
+            observationLevel: components["schemas"]["ObservationLevel"];
+            occurrenceRate: number;
+            observedCount: number;
+            windowCount: number;
         };
         RecommendationSummary: {
             code: string;
@@ -561,6 +770,8 @@ export interface components {
             gaitSummary: components["schemas"]["GaitSummary"];
             pressureDistribution: components["schemas"]["PressureDistribution"];
             patterns: components["schemas"]["PatternResult"][];
+            /** @description rule-v1.2.0 이상에서 6종 코드 전체의 관찰 단계. 이전 알고리즘 결과는 null. */
+            observationSummary?: components["schemas"]["ObservationSummaryItem"][] | null;
             recommendations: components["schemas"]["RecommendationSummary"][];
             disclaimer: string;
             /** Format: date-time */
@@ -1034,7 +1245,22 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
+            /**
+             * @description 세션이 MEASURING이 아닙니다. `details.currentStatus`와 `details.disposition`을 포함합니다.
+             *     `disposition`은 세션이 CREATED이면 `RETRY`(Retry-After 초 뒤 재시도), 그 외에는 `DROP`(배치 폐기)입니다.
+             */
+            409: {
+                headers: {
+                    /** @description details.disposition과 같은 값(RETRY 또는 DROP). 보조 정보이며 본문이 1차 판별자입니다. */
+                    "X-Batch-Disposition"?: "RETRY" | "DROP";
+                    /** @description disposition이 RETRY일 때만 포함되는 재시도 대기 초. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
             /** @description 배치 크기 초과 */
             413: {
                 headers: {
@@ -1045,6 +1271,83 @@ export interface operations {
                 };
             };
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listReceiverSessions: {
+        parameters: {
+            query: {
+                status: "MEASURING";
+                deviceSerial?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 세션 목록 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiverSessionListResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getReceiverSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 세션 정보 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiverSessionResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    reportReceiverStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiverStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description 반영 성공 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     heartbeatDevice: {

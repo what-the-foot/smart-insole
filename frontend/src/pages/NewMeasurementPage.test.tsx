@@ -16,6 +16,7 @@ const devices: DeviceResponse[] = [
     sensorLayoutVersion: 'layout-v1',
     activeCalibrationVersion: 'identity-v1',
     firmwareVersion: '0.1.0',
+    adcMax: 4095,
     status: 'ACTIVE',
     registeredAt: '2026-09-02T07:00:00Z',
   },
@@ -28,6 +29,7 @@ const devices: DeviceResponse[] = [
     sensorLayoutVersion: 'layout-v1',
     activeCalibrationVersion: 'identity-v1',
     firmwareVersion: '0.1.0',
+    adcMax: 4095,
     status: 'ACTIVE',
     registeredAt: '2026-09-02T07:00:00Z',
   },
@@ -44,6 +46,7 @@ describe('NewMeasurementPage', () => {
       rightDeviceId: '64eb539f-4b48-44f6-bb30-d26861463ca6',
       sampleRateHz: 100,
       sourceType: 'SIMULATED',
+      adcMax: 4095,
       memo: null,
       createdAt: '2026-09-02T07:00:00Z',
     });

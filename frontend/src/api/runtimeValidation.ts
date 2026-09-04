@@ -1,9 +1,15 @@
 import type { SensorLayoutResponse } from './types';
 
+// 계약(contracts/openapi.yaml, SensorLayoutResponse/SensorPoint)의 exact-key 배열.
+// 계약이 바뀌면 `npm run api:generate` 후 이 배열과 runtimeValidation.test.ts를 함께 갱신한다.
 const layoutKeys = ['version', 'sensorCount', 'points'] as const;
-const pointKeys = ['index', 'x', 'y', 'region', 'medialLateral'] as const;
+const requiredPointKeys = ['index', 'x', 'y', 'region', 'medialLateral'] as const;
+// SensorPoint.label(1.1.0): 선택·nullable. 펌웨어 센서 라벨(S01..S08), 레거시 레이아웃은 null 또는 생략.
+const optionalPointKeys = ['label'] as const;
+const pointKeys = [...requiredPointKeys, ...optionalPointKeys] as const;
 const regions = ['HEEL', 'MIDFOOT', 'FOREFOOT', 'TOE'] as const;
 const horizontalRegions = ['MEDIAL', 'CENTER', 'LATERAL'] as const;
+const SENSOR_LABEL_MAX_LENGTH = 16;
 const rfc3339DateTimePattern =
   /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?([Zz]|[+-]\d{2}:\d{2})$/;
 
@@ -20,6 +26,14 @@ const hasExactKeys = (
     expectedKeys.every((key) => Object.prototype.hasOwnProperty.call(value, key))
   );
 };
+
+const hasOnlyKnownKeys = (
+  value: Record<string, unknown>,
+  requiredKeys: readonly string[],
+  optionalKeys: readonly string[],
+): boolean =>
+  requiredKeys.every((key) => Object.prototype.hasOwnProperty.call(value, key)) &&
+  Object.keys(value).every((key) => requiredKeys.includes(key) || optionalKeys.includes(key));
 
 export const isRfc3339DateTime = (value: unknown): value is string => {
   if (typeof value !== 'string') return false;
@@ -58,16 +72,24 @@ export const isRfc3339DateTime = (value: unknown): value is string => {
 const isUnitNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
 
+const isSensorLabel = (value: unknown): value is string | null | undefined =>
+  value === undefined ||
+  value === null ||
+  (typeof value === 'string' && value.length > 0 && value.length <= SENSOR_LABEL_MAX_LENGTH);
+
 const isSensorPoint = (value: unknown, expectedIndex: number): boolean =>
   isRecord(value) &&
-  hasExactKeys(value, pointKeys) &&
+  hasOnlyKnownKeys(value, requiredPointKeys, optionalPointKeys) &&
   value.index === expectedIndex &&
   isUnitNumber(value.x) &&
   isUnitNumber(value.y) &&
   typeof value.region === 'string' &&
   regions.includes(value.region as (typeof regions)[number]) &&
   typeof value.medialLateral === 'string' &&
-  horizontalRegions.includes(value.medialLateral as (typeof horizontalRegions)[number]);
+  horizontalRegions.includes(value.medialLateral as (typeof horizontalRegions)[number]) &&
+  isSensorLabel(value.label);
+
+export const sensorPointKeys: readonly string[] = pointKeys;
 
 export const parseSensorLayoutValue = (value: unknown): SensorLayoutResponse => {
   if (
