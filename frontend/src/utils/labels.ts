@@ -3,11 +3,42 @@ import type {
   DeviceResponse,
   DeviceStatus,
   MeasurementStatus,
+  ObservationLevel,
   ObservationPatternCode,
   QualityLevel,
   ReceiverUploadState,
   SourceType,
 } from '../api/types';
+
+// rule-v1.2.0 관찰 단계(DEC-030). 발생 비율 0.20/0.60·최소 창 4는 백엔드 제안값이며 질환 판단이 아니다.
+export const observationLevelLabels: Record<ObservationLevel, string> = {
+  NOT_OBSERVED: '관찰되지 않음',
+  PARTIALLY_OBSERVED: '일부 관찰',
+  REPEATEDLY_OBSERVED: '반복 관찰',
+};
+
+export const observationLevelOrder: readonly ObservationLevel[] = [
+  'REPEATEDLY_OBSERVED',
+  'PARTIALLY_OBSERVED',
+  'NOT_OBSERVED',
+];
+
+export const OBSERVATION_LEVEL_UNAVAILABLE = '관찰 단계 미제공(이전 분석)';
+
+// 예) '발생 비율 62% (13/21 걸음)'. LEFT_RIGHT_ASYMMETRY의 창은 좌우 걸음 쌍이다.
+export const occurrenceRateText = (item: {
+  code: string;
+  occurrenceRate?: number | null;
+  observedCount?: number | null;
+  windowCount?: number | null;
+}): string | null => {
+  const rate = item.occurrenceRate ?? null;
+  const observed = item.observedCount ?? null;
+  const windows = item.windowCount ?? null;
+  if (rate === null || observed === null || windows === null) return null;
+  const unit = item.code === 'LEFT_RIGHT_ASYMMETRY' ? '걸음 쌍' : '걸음';
+  return `발생 비율 ${Math.round(rate * 100)}% (${observed}/${windows} ${unit})`;
+};
 
 export const measurementStatusLabels: Record<MeasurementStatus, string> = {
   CREATED: '준비됨',

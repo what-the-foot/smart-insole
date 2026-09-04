@@ -12,6 +12,7 @@
   --color-line: #dfe5e1;
   --color-surface: #ffffff;
   --color-canvas: #f4f6f3;
+  --color-surface-muted: #f3f6f4;
   --color-warning: #a76616;
   --color-warning-soft: #fff1d7;
   --color-danger: #a63d3d;
@@ -496,3 +497,19 @@ h3 { font-size: 1.08rem; }
 .session-id-copy code { overflow-wrap: anywhere; font-size: .86rem; font-weight: 600; user-select: all; }
 .session-id-copy__status { margin: 0; flex-basis: 100%; min-height: 1.2em; color: var(--color-primary-dark); font-size: .78rem; }
 .session-id-copy__status--error { color: var(--color-danger); }
+
+/* 관찰 단계(rule-v1.2.0) */
+.pattern-card__badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.pattern-card__occurrence { margin: -8px 0 14px !important; color: var(--color-primary-dark); font-size: .8rem; font-weight: 600; }
+.observation-summary { display: grid; gap: 16px; }
+.observation-group { padding: 14px 16px; border: 1px solid var(--color-line); border-radius: 12px; background: var(--color-surface-muted); }
+.observation-group__title { display: flex; align-items: center; gap: 8px; }
+.observation-group__title small { color: var(--color-muted); font-size: .72rem; }
+.observation-group ul { display: grid; margin: 12px 0 0; padding: 0; gap: 8px; list-style: none; }
+.observation-group li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: .84rem; }
+.observation-group li span { color: var(--color-muted); font-size: .76rem; text-align: right; }
+.observation-group__empty { margin: 10px 0 0; color: var(--color-muted); font-size: .78rem; }
+.observation-summary__legacy { display: flex; margin: 0; align-items: center; gap: 8px; color: var(--color-muted); font-size: .84rem; }
+.observation-summary__legacy svg { flex: 0 0 auto; width: 18px; }
+.share-bars .share-bar + .share-bar { margin-top: 8px; }
+.share-bars .share-bar > div:first-child { font-size: .72rem; }

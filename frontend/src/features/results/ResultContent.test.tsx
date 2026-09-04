@@ -85,6 +85,95 @@ describe('결과 표시와 폴링', () => {
     expect(screen.getByRole('status')).toHaveTextContent('시뮬레이션 세션의 결과입니다.');
   });
 
+  it('rule-v1.2.0 결과는 관찰 단계 배지·발생 비율·단계별 요약·센서 share를 표시한다', () => {
+    const observed: AnalysisResultResponse = {
+      ...result,
+      algorithmVersion: 'rule-v1.2.0',
+      pressureDistribution: {
+        ...result.pressureDistribution,
+        leftSensorSharePct: [10, 10, 5, 5, 20, 20, 15, 15],
+        rightSensorSharePct: null,
+      },
+      patterns: [
+        {
+          code: 'MEDIAL_LOAD_TENDENCY',
+          severity: 'CAUTION',
+          title: '내측 하중 경향',
+          message: '내측 센서 신호 비율이 반복해서 높게 관찰되었습니다.',
+          evidence: '내측 신호 비율 0.63',
+          observationLevel: 'REPEATEDLY_OBSERVED',
+          occurrenceRate: 0.619,
+          observedCount: 13,
+          windowCount: 21,
+        },
+        {
+          code: 'LEFT_RIGHT_ASYMMETRY',
+          severity: 'INFO',
+          title: '좌우 비대칭 경향',
+          message: '좌우 접촉 시간 차이가 일부 걸음 쌍에서 관찰되었습니다.',
+          evidence: '차이 12%',
+          observationLevel: 'PARTIALLY_OBSERVED',
+          occurrenceRate: 0.25,
+          observedCount: 5,
+          windowCount: 20,
+        },
+      ],
+      observationSummary: [
+        { code: 'MEDIAL_LOAD_TENDENCY', observationLevel: 'REPEATEDLY_OBSERVED', occurrenceRate: 0.619, observedCount: 13, windowCount: 21 },
+        { code: 'LATERAL_LOAD_TENDENCY', observationLevel: 'NOT_OBSERVED', occurrenceRate: 0, observedCount: 0, windowCount: 21 },
+        { code: 'LEFT_RIGHT_ASYMMETRY', observationLevel: 'PARTIALLY_OBSERVED', occurrenceRate: 0.25, observedCount: 5, windowCount: 20 },
+        { code: 'LOW_HALLUX_SIGNAL', observationLevel: 'NOT_OBSERVED', occurrenceRate: 0.05, observedCount: 1, windowCount: 21 },
+        { code: 'FOREFOOT_LOAD_TENDENCY', observationLevel: 'NOT_OBSERVED', occurrenceRate: 0.1, observedCount: 2, windowCount: 21 },
+        { code: 'REARFOOT_LOAD_TENDENCY', observationLevel: 'NOT_OBSERVED', occurrenceRate: 0.14, observedCount: 3, windowCount: 21 },
+      ],
+    };
+    const { container } = render(<MemoryRouter><ResultContent result={observed} /></MemoryRouter>);
+
+    const cards = container.querySelectorAll('.pattern-card');
+    expect(cards).toHaveLength(2);
+    expect(cards[0]).toHaveTextContent('반복 관찰');
+    expect(cards[0]).toHaveTextContent('발생 비율 62% (13/21 걸음)');
+    expect(cards[1]).toHaveTextContent('일부 관찰');
+    expect(cards[1]).toHaveTextContent('발생 비율 25% (5/20 걸음 쌍)');
+
+    const groups = container.querySelectorAll('.observation-group');
+    expect(groups).toHaveLength(3);
+    expect(groups[0]).toHaveTextContent('반복 관찰');
+    expect(groups[0]).toHaveTextContent('1종');
+    expect(groups[1]).toHaveTextContent('일부 관찰');
+    expect(groups[2]).toHaveTextContent('관찰되지 않음');
+    expect(groups[2]).toHaveTextContent('4종');
+    expect(groups[2]).toHaveTextContent('엄지 신호 낮음');
+    expect(screen.queryByText(/관찰 단계 미제공/)).not.toBeInTheDocument();
+
+    expect(container.querySelectorAll('.share-bar')).toHaveLength(8);
+    expect(container.textContent).not.toMatch(/최대 압력|CoP|정상/);
+  });
+
+  it('rule-v1.2.0 이전 결과에는 관찰 단계 미제공 안내를 표시한다', () => {
+    const legacyPattern: AnalysisResultResponse = {
+      ...result,
+      patterns: [
+        {
+          code: 'MEDIAL_LOAD_TENDENCY',
+          severity: 'CAUTION',
+          title: '내측 하중 경향',
+          message: '내측 신호가 높게 관찰되었습니다.',
+          evidence: '내측 비율 0.61',
+          observationLevel: null,
+          occurrenceRate: null,
+          observedCount: null,
+          windowCount: null,
+        },
+      ],
+      observationSummary: null,
+    };
+    const { container } = render(<MemoryRouter><ResultContent result={legacyPattern} /></MemoryRouter>);
+    expect(screen.getAllByText(/관찰 단계 미제공\(이전 분석\)/)).toHaveLength(2);
+    expect(container.querySelectorAll('.observation-group')).toHaveLength(0);
+    expect(container.querySelectorAll('.share-bar')).toHaveLength(0);
+  });
+
   it('이전 알고리즘에 없던 지표를 실제 0으로 오해시키지 않는다', () => {
     const legacy: AnalysisResultResponse = {
       ...result,
