@@ -92,7 +92,8 @@ class FrameBatchContractTest {
             }
         });
         assertThat(stored).anyMatch(frame -> Boolean.FALSE.equals(frame.imuAvailable()));
-        assertThat(stored).anyMatch(frame -> frame.sequence() > 65535);
+        // The receiver unwrapped the u16 wire counter: sequences continue past the 16-bit boundary.
+        assertThat(stored).anyMatch(frame -> frame.sequence() >= 1L << 16);
 
         // Replaying the same batch is idempotent on (session, device, sequence).
         mvc.perform(post("/internal/v1/measurement-sessions/{id}/frame-batches", sessionId)
