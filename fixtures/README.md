@@ -8,7 +8,7 @@
 Session: 5803f871-9fca-4a7f-a2c7-9b567a92a6cf
 Left device: b4b96290-ad73-42d9-ae21-1446f1258861
 Right device: 64eb539f-4b48-44f6-bb30-d26861463ca6
-Receiver: RECEIVER-PC-001
+Receiver: RECEIVER-PC-001 (1.0 시뮬레이터) / GATEWAY-DEV-001 (1.1 수신기)
 ```
 
 Frame batch 본문에는 session ID가 없으며 요청 경로에 넣습니다.
@@ -19,21 +19,36 @@ POST /internal/v1/measurement-sessions/5803f871-9fca-4a7f-a2c7-9b567a92a6cf/fram
 
 실제 테스트에서는 DB에 생성된 session/device ID로 fixture를 치환하거나 Mock Receiver CLI 인자로 전달하세요. 실제 Receiver API Key는 fixture에 저장하지 않습니다.
 
+## ADC 스케일
+
+모든 `sensorValues`는 **12비트 RAW ADC(0..4095)** 스케일입니다. 4095는 기기·세션 `adcMax`이자 포화값이며
+4096 이상은 백엔드가 `INVALID_ADC_VALUE`로 거부합니다. 접촉 판정과 정규화(0~100)는 세션 `adcMax`를 기준으로 하므로
+fixture 값의 절대 크기는 이 스케일에 맞춰져 있습니다. (`manifest.json`의 `adcMax` 참고)
+
 ## 파일
 
-| 파일 | 목적 |
-|---|---|
-| `frame-batch-normal.json` | 양발 정상 수신 경로 |
-| `frame-batch-left-asymmetry.json` | 왼발 값이 상대적으로 큰 합성 입력 |
-| `frame-batch-duplicate.json` | 같은 device/sequence 중복 |
-| `frame-batch-sequence-gap.json` | 의도된 sequence 누락 |
-| `frame-batch-sensor-stuck.json` | 왼발 한 센서가 고정 고값 4095에 머무는 입력 |
-| `frame-batch-right-disconnected.json` | 오른발 프레임이 없는 batch |
-| `frame-batch-out-of-order.json` | 배열 내 도착 순서가 뒤바뀐 batch |
-| `frame-batch-six-sensor.json` | 양발 6센서 기기의 정상 수신 경로 |
-| `realtime-bilateral.json` | 양발 실시간 메시지 예시 |
-| `realtime-right-disconnected.json` | 오른발이 `null`인 메시지 예시 |
-| `manifest.json` | 목적과 최소 기대 결과의 기계 판독 목록 |
+| 파일 | schemaVersion | 목적 |
+|---|---|---|
+| `frame-batch-normal.json` | 1.0 | 양발 정상 수신 경로 |
+| `frame-batch-left-asymmetry.json` | 1.0 | 왼발 값이 상대적으로 큰 합성 입력 |
+| `frame-batch-duplicate.json` | 1.0 | 같은 device/sequence 중복 |
+| `frame-batch-sequence-gap.json` | 1.0 | 의도된 sequence 누락 |
+| `frame-batch-sensor-stuck.json` | 1.0 | 왼발 한 센서가 adcMax(4095)에 고정된 포화 입력 |
+| `frame-batch-right-disconnected.json` | 1.0 | 오른발 프레임이 없는 batch |
+| `frame-batch-out-of-order.json` | 1.0 | 배열 내 도착 순서가 뒤바뀐 batch |
+| `frame-batch-six-sensor.json` | 1.0 | 양발 6센서 기기의 정상 수신 경로 |
+| `frame-batch-device-v1_1.json` | 1.1 | 실기기 수신기 serializer 출력 형태(50Hz, u16 경계 통과 sequence, 프레임별 `receivedAt`, RAW/미보정, IMU 벡터, IMU 누락 프레임, `batchId`) |
+| `realtime-bilateral.json` | - | 양발 실시간 메시지 예시 |
+| `realtime-right-disconnected.json` | - | 오른발이 `null`인 메시지 예시 |
+| `manifest.json` | - | 목적과 최소 기대 결과의 기계 판독 목록 |
+
+## schemaVersion 1.1 규칙
+
+- 1.1 프레임의 선택 필드는 `protocolVersion`, `receivedAt`, `dataMode`, `calibrated`, `imuAvailable`, `accelMg`, `gyroDps10`, `flags`입니다.
+- `additionalProperties: false`와 백엔드 `fail-on-unknown-properties`가 유지되므로 값이 없는 키는 `null` 대신 **생략**합니다.
+  `frame-batch-device-v1_1.json`의 `imuAvailable=false` 프레임이 그 예입니다.
+- `flags`는 `protocolVersion` 2 이상에서만 보냅니다. 1.0 배치에 1.1 필드를 넣으면 해당 프레임은 `SCHEMA_FIELD_NOT_ALLOWED`로 거부됩니다.
+- 백엔드 `FrameBatchContractTest`는 이 fixture를 그대로 ingest 해 `acceptedCount == frames.size()`를 검증합니다.
 
 ## 사용 원칙
 
@@ -42,4 +57,5 @@ POST /internal/v1/measurement-sessions/5803f871-9fca-4a7f-a2c7-9b567a92a6cf/fram
 - 중복·gap·out-of-order는 의도된 시나리오입니다.
 - 패턴 임계값은 아직 임상 확정값이 아니므로, 특정 질환 결과를 기대값으로 고정하지 않습니다.
 - 6센서 경로는 `frame-batch-six-sensor.json`을 사용하며 테스트 기기의 `sensorCount`도 6으로 등록합니다.
-- Fixture 추가 시 OpenAPI 또는 JSON Schema 검증을 함께 실행합니다.
+  (`layout-v1-6`은 조회만 가능하고 등록은 비활성이므로 6센서 등록 테스트는 활성 6센서 seed 확정 후 갱신합니다.)
+- Fixture 추가 시 OpenAPI 또는 JSON Schema 검증(`python scripts/validate_contracts.py`)을 함께 실행합니다.

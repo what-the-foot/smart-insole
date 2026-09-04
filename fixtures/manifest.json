@@ -1,6 +1,8 @@
 {
-  "fixtureVersion": "1.0",
+  "fixtureVersion": "1.1",
   "notice": "모든 값은 기능 테스트용 합성 데이터이며 임상적 의미가 없습니다.",
+  "adcMax": 4095,
+  "adcNotice": "모든 sensorValues는 12비트 RAW ADC(0..4095) 스케일입니다. 4095는 세션 adcMax이자 포화값입니다.",
   "sessionIdExample": "5803f871-9fca-4a7f-a2c7-9b567a92a6cf",
   "devices": {
     "left": "b4b96290-ad73-42d9-ae21-1446f1258861",
@@ -9,7 +11,7 @@
   "cases": [
     {
       "file": "frame-batch-normal.json",
-      "purpose": "정상적인 양발 batch 수신 경로",
+      "purpose": "정상적인 양발 batch 수신 경로 (schemaVersion 1.0)",
       "expected": [
         "요청 구조 통과",
         "중복 없음",
@@ -42,10 +44,10 @@
     },
     {
       "file": "frame-batch-sensor-stuck.json",
-      "purpose": "왼발 한 센서가 고정 고값 4095에 머무는 입력",
+      "purpose": "왼발 한 센서가 세션 adcMax(4095)에 고정되어 포화된 입력",
       "expected": [
-        "stuck 감지",
-        "4095를 계약상 ADC 최대값으로 가정하지 않음"
+        "SENSOR_STUCK_OR_SATURATED 감지",
+        "4095는 계약상 ADC 최대값(포화)이며 4096 이상은 INVALID_ADC_VALUE"
       ]
     },
     {
@@ -71,6 +73,16 @@
         "요청 구조 통과",
         "모든 sensorValues 길이 6",
         "양발 snapshot의 센서 수 6"
+      ]
+    },
+    {
+      "file": "frame-batch-device-v1_1.json",
+      "purpose": "실기기 수신기(openapi-1.1 serializer) 출력 형태의 schemaVersion 1.1 배치: 50Hz, u16 경계를 넘긴 sequence, 프레임별 receivedAt, RAW/미보정, IMU 벡터와 IMU 누락 프레임",
+      "expected": [
+        "요청 구조 통과 (additionalProperties: false)",
+        "acceptedCount == frames 길이 (FrameBatchContractTest)",
+        "imuAvailable=false 프레임은 accelMg/gyroDps10 생략",
+        "같은 프레임을 1.0 배치로 보내면 SCHEMA_FIELD_NOT_ALLOWED"
       ]
     },
     {

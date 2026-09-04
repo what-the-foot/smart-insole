@@ -1,0 +1,732 @@
+{
+  "schemaVersion": "1.1",
+  "receiverId": "GATEWAY-DEV-001",
+  "batchId": "0192a7f0-6d3e-7c2b-9a41-5e8c3b2f1d01-batch",
+  "sentAt": "2026-09-04T01:02:03.456789Z",
+  "frames": [
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 65530,
+      "deviceTimeMs": 1310600,
+      "sensorValues": [
+        120,
+        110,
+        60,
+        55,
+        70,
+        65,
+        60,
+        40
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.401234Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        12,
+        -18,
+        992
+      ],
+      "gyroDps10": [
+        3,
+        -4,
+        5
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 65530,
+      "deviceTimeMs": 1310600,
+      "sensorValues": [
+        115,
+        106,
+        58,
+        53,
+        67,
+        62,
+        58,
+        38
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.402634Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        12,
+        -18,
+        992
+      ],
+      "gyroDps10": [
+        3,
+        -4,
+        5
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 65531,
+      "deviceTimeMs": 1310620,
+      "sensorValues": [
+        1580,
+        1420,
+        310,
+        280,
+        240,
+        220,
+        200,
+        90
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.421234Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        9,
+        -13,
+        996
+      ],
+      "gyroDps10": [
+        4,
+        -3,
+        4
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 65531,
+      "deviceTimeMs": 1310620,
+      "sensorValues": [
+        1517,
+        1363,
+        298,
+        269,
+        230,
+        211,
+        192,
+        86
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.422634Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        9,
+        -13,
+        996
+      ],
+      "gyroDps10": [
+        4,
+        -3,
+        4
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 65532,
+      "deviceTimeMs": 1310640,
+      "sensorValues": [
+        2760,
+        2480,
+        610,
+        560,
+        520,
+        470,
+        430,
+        160
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.441234Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        6,
+        -8,
+        1000
+      ],
+      "gyroDps10": [
+        5,
+        -2,
+        5
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 65532,
+      "deviceTimeMs": 1310640,
+      "sensorValues": [
+        2650,
+        2381,
+        586,
+        538,
+        499,
+        451,
+        413,
+        154
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.442634Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        6,
+        -8,
+        1000
+      ],
+      "gyroDps10": [
+        5,
+        -2,
+        5
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 65533,
+      "deviceTimeMs": 1310660,
+      "sensorValues": [
+        3210,
+        2880,
+        900,
+        820,
+        980,
+        860,
+        790,
+        300
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.461234Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        3,
+        -3,
+        992
+      ],
+      "gyroDps10": [
+        6,
+        -4,
+        4
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 65533,
+      "deviceTimeMs": 1310660,
+      "sensorValues": [
+        3082,
+        2765,
+        864,
+        787,
+        941,
+        826,
+        758,
+        288
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.462634Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        3,
+        -3,
+        992
+      ],
+      "gyroDps10": [
+        6,
+        -4,
+        4
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 65534,
+      "deviceTimeMs": 1310680,
+      "sensorValues": [
+        2950,
+        2650,
+        1120,
+        1010,
+        1650,
+        1480,
+        1340,
+        560
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.481234Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        0,
+        -18,
+        996
+      ],
+      "gyroDps10": [
+        7,
+        -3,
+        5
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 65534,
+      "deviceTimeMs": 1310680,
+      "sensorValues": [
+        2832,
+        2544,
+        1075,
+        970,
+        1584,
+        1421,
+        1286,
+        538
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.482634Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        0,
+        -18,
+        996
+      ],
+      "gyroDps10": [
+        7,
+        -3,
+        5
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 65535,
+      "deviceTimeMs": 1310700,
+      "sensorValues": [
+        2180,
+        1960,
+        1300,
+        1180,
+        2380,
+        2120,
+        1930,
+        910
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.501234Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        -3,
+        -13,
+        1000
+      ],
+      "gyroDps10": [
+        3,
+        -2,
+        4
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 65535,
+      "deviceTimeMs": 1310700,
+      "sensorValues": [
+        2093,
+        1882,
+        1248,
+        1133,
+        2285,
+        2035,
+        1853,
+        874
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.502634Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        -3,
+        -13,
+        1000
+      ],
+      "gyroDps10": [
+        3,
+        -2,
+        4
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 65536,
+      "deviceTimeMs": 1310720,
+      "sensorValues": [
+        1260,
+        1130,
+        1210,
+        1090,
+        2960,
+        2640,
+        2400,
+        1380
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.521234Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        -6,
+        -8,
+        992
+      ],
+      "gyroDps10": [
+        4,
+        -4,
+        5
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 65536,
+      "deviceTimeMs": 1310720,
+      "sensorValues": [
+        1210,
+        1085,
+        1162,
+        1046,
+        2842,
+        2534,
+        2304,
+        1325
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.522634Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        -6,
+        -8,
+        992
+      ],
+      "gyroDps10": [
+        4,
+        -4,
+        5
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 65537,
+      "deviceTimeMs": 1310740,
+      "sensorValues": [
+        520,
+        470,
+        860,
+        780,
+        3120,
+        2790,
+        2540,
+        1720
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.541234Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        -9,
+        -3,
+        996
+      ],
+      "gyroDps10": [
+        5,
+        -3,
+        4
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 65537,
+      "deviceTimeMs": 1310740,
+      "sensorValues": [
+        499,
+        451,
+        826,
+        749,
+        2995,
+        2678,
+        2438,
+        1651
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.542634Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        -9,
+        -3,
+        996
+      ],
+      "gyroDps10": [
+        5,
+        -3,
+        4
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 65538,
+      "deviceTimeMs": 1310760,
+      "sensorValues": [
+        180,
+        160,
+        430,
+        390,
+        2610,
+        2330,
+        2120,
+        1690
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.561234Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        -12,
+        -18,
+        1000
+      ],
+      "gyroDps10": [
+        6,
+        -2,
+        5
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 65538,
+      "deviceTimeMs": 1310760,
+      "sensorValues": [
+        173,
+        154,
+        413,
+        374,
+        2506,
+        2237,
+        2035,
+        1622
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.562634Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        -12,
+        -18,
+        1000
+      ],
+      "gyroDps10": [
+        6,
+        -2,
+        5
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 65539,
+      "deviceTimeMs": 1310780,
+      "sensorValues": [
+        90,
+        80,
+        150,
+        140,
+        1520,
+        1360,
+        1240,
+        1180
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.581234Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": false
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 65539,
+      "deviceTimeMs": 1310780,
+      "sensorValues": [
+        86,
+        77,
+        144,
+        134,
+        1459,
+        1306,
+        1190,
+        1133
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.582634Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": false
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 65540,
+      "deviceTimeMs": 1310800,
+      "sensorValues": [
+        60,
+        55,
+        70,
+        65,
+        480,
+        430,
+        390,
+        470
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.601234Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        -18,
+        -8,
+        996
+      ],
+      "gyroDps10": [
+        3,
+        -3,
+        5
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 65540,
+      "deviceTimeMs": 1310800,
+      "sensorValues": [
+        58,
+        53,
+        67,
+        62,
+        461,
+        413,
+        374,
+        451
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.602634Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        -18,
+        -8,
+        996
+      ],
+      "gyroDps10": [
+        3,
+        -3,
+        5
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 65541,
+      "deviceTimeMs": 1310820,
+      "sensorValues": [
+        40,
+        35,
+        45,
+        40,
+        90,
+        80,
+        75,
+        60
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.621234Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        -21,
+        -3,
+        1000
+      ],
+      "gyroDps10": [
+        4,
+        -2,
+        4
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 65541,
+      "deviceTimeMs": 1310820,
+      "sensorValues": [
+        38,
+        34,
+        43,
+        38,
+        86,
+        77,
+        72,
+        58
+      ],
+      "protocolVersion": 1,
+      "receivedAt": "2026-09-04T01:02:03.622634Z",
+      "dataMode": "RAW",
+      "calibrated": false,
+      "imuAvailable": true,
+      "accelMg": [
+        -21,
+        -3,
+        1000
+      ],
+      "gyroDps10": [
+        4,
+        -2,
+        4
+      ]
+    }
+  ]
+}
