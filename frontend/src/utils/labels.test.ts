@@ -10,14 +10,28 @@ import {
 describe('세션 배지·수신기 안내', () => {
   it('sourceType과 sampleRateHz를 한 배지로 표시한다', () => {
     expect(sessionSourceBadge({ sourceType: 'DEVICE', sampleRateHz: 50 })).toBe('실기기 · 50Hz');
-    expect(sessionSourceBadge({ sourceType: 'SIMULATED', sampleRateHz: 100 })).toBe('시뮬레이션 · 100Hz');
+    expect(sessionSourceBadge({ sourceType: 'SIMULATED', sampleRateHz: 100 })).toBe(
+      '시뮬레이션 · 100Hz',
+    );
   });
 
   it.each([
     ['보고 전', {}, '수신기 업로드 상태가 아직 보고되지 않았습니다.'],
-    ['null 보고', { receiverState: null, receiverPendingBatches: null }, '수신기 업로드 상태가 아직 보고되지 않았습니다.'],
-    ['스트리밍', { receiverState: 'STREAMING' as const, receiverPendingBatches: 0 }, '수신기 스트리밍 중 · 미전송 배치 0개'],
-    ['업로드 중', { receiverState: 'UPLOADING' as const, receiverPendingBatches: 3 }, '수신기 남은 배치 업로드 중 · 미전송 배치 3개'],
+    [
+      'null 보고',
+      { receiverState: null, receiverPendingBatches: null },
+      '수신기 업로드 상태가 아직 보고되지 않았습니다.',
+    ],
+    [
+      '스트리밍',
+      { receiverState: 'STREAMING' as const, receiverPendingBatches: 0 },
+      '수신기 스트리밍 중 · 미전송 배치 0개',
+    ],
+    [
+      '업로드 중',
+      { receiverState: 'UPLOADING' as const, receiverPendingBatches: 3 },
+      '수신기 남은 배치 업로드 중 · 미전송 배치 3개',
+    ],
     ['완료', { receiverState: 'UPLOAD_COMPLETE' as const }, '수신기 업로드 완료'],
   ])('%s 상태의 수신기 안내 문구', (_case, session, expected) => {
     expect(receiverStatusHint(session)).toBe(expected);

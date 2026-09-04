@@ -52,7 +52,10 @@ vi.mock('@stomp/stompjs', () => ({
       return Promise.resolve();
     }
 
-    subscribe(destination: string, callback: (message: { body: string }) => void): { unsubscribe: () => void } {
+    subscribe(
+      destination: string,
+      callback: (message: { body: string }) => void,
+    ): { unsubscribe: () => void } {
       stompMock.subscriptions.push(destination);
       stompMock.actions.push('subscribe');
       stompMock.callbacks.push(callback);
@@ -123,10 +126,14 @@ describe('useRealtimeMeasurement', () => {
     vi.spyOn(measurementApi, 'snapshot').mockImplementation((sessionId) => {
       stompMock.actions.push('snapshot');
       return Promise.resolve(
-        sessionId === sessionOne ? snapshot(sessionOne, 258, true) : snapshot(sessionTwo, 222, false),
+        sessionId === sessionOne
+          ? snapshot(sessionOne, 258, true)
+          : snapshot(sessionTwo, 222, false),
       );
     });
-    const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{children}</AuthProvider>;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <AuthProvider>{children}</AuthProvider>
+    );
 
     const { result, rerender, unmount } = renderHook(
       ({ sessionId }) => useRealtimeMeasurement(sessionId, true),
@@ -164,10 +171,14 @@ describe('useRealtimeMeasurement', () => {
     signin('first-token');
     vi.spyOn(measurementApi, 'snapshot').mockImplementation((sessionId) =>
       Promise.resolve(
-        sessionId === sessionOne ? snapshot(sessionOne, 258, true) : snapshot(sessionTwo, 222, false),
+        sessionId === sessionOne
+          ? snapshot(sessionOne, 258, true)
+          : snapshot(sessionTwo, 222, false),
       ),
     );
-    const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{children}</AuthProvider>;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <AuthProvider>{children}</AuthProvider>
+    );
     const { result, rerender } = renderHook(
       ({ sessionId }) => useRealtimeMeasurement(sessionId, true),
       { initialProps: { sessionId: sessionOne }, wrapper },
@@ -183,7 +194,9 @@ describe('useRealtimeMeasurement', () => {
     spike.left.sensorValues = [12, 24, 51, 97, 61, 30];
     act(() => stompMock.callbacks.at(-1)?.({ body: JSON.stringify(spike) }));
     expect(result.current.leftPeak).toBe(97);
-    act(() => stompMock.callbacks.at(-1)?.({ body: JSON.stringify(snapshot(sessionOne, 100, true)) }));
+    act(() =>
+      stompMock.callbacks.at(-1)?.({ body: JSON.stringify(snapshot(sessionOne, 100, true)) }),
+    );
     expect(result.current.leftPeak).toBe(97);
 
     // 토큰 교체 → 연결 effect 재실행(deactivate + 재구독). 최대값은 유지되어야 한다.
@@ -220,15 +233,21 @@ describe('useRealtimeMeasurement', () => {
       });
     signin('expiring-token');
     vi.spyOn(measurementApi, 'snapshot').mockResolvedValue(snapshot(sessionOne, 258, true));
-    const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{children}</AuthProvider>;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <AuthProvider>{children}</AuthProvider>
+    );
     const { result } = renderHook(() => useRealtimeMeasurement(sessionOne, true), { wrapper });
 
     await waitFor(() => expect(result.current.connectionStatus).toBe('CONNECTED'));
-    expect(stompMock.configs.at(-1)?.connectHeaders).toEqual({ Authorization: 'Bearer expiring-token' });
+    expect(stompMock.configs.at(-1)?.connectHeaders).toEqual({
+      Authorization: 'Bearer expiring-token',
+    });
     const deactivations = stompMock.deactivate.mock.calls.length;
 
     // 서버 ERROR 프레임(message:TOKEN_EXPIRED) → AUTH_EXPIRED, 만료 토큰으로 재연결하지 않도록 클라이언트 정지
-    act(() => stompMock.instances.at(-1)?.onStompError({ headers: { message: 'TOKEN_EXPIRED' }, body: '' }));
+    act(() =>
+      stompMock.instances.at(-1)?.onStompError({ headers: { message: 'TOKEN_EXPIRED' }, body: '' }),
+    );
     expect(result.current.connectionStatus).toBe('AUTH_EXPIRED');
     expect(result.current.error).toBe(AUTH_EXPIRED_MESSAGE);
     expect(stompMock.deactivate).toHaveBeenCalledTimes(deactivations + 1);
@@ -243,12 +262,18 @@ describe('useRealtimeMeasurement', () => {
       signin('fresh-token');
     });
     await waitFor(() => expect(result.current.connectionStatus).toBe('CONNECTED'));
-    expect(stompMock.configs.at(-1)?.connectHeaders).toEqual({ Authorization: 'Bearer fresh-token' });
+    expect(stompMock.configs.at(-1)?.connectHeaders).toEqual({
+      Authorization: 'Bearer fresh-token',
+    });
     expect(stompMock.subscriptions.length).toBe(subscriptionsBefore + 1);
     expect(stompMock.subscriptions.at(-1)).toContain(sessionOne);
 
     // TOKEN_EXPIRED가 아닌 ERROR 프레임은 기존 ERROR 상태로 남는다.
-    act(() => stompMock.instances.at(-1)?.onStompError({ headers: { message: 'Forbidden' }, body: 'not the owner' }));
+    act(() =>
+      stompMock.instances
+        .at(-1)
+        ?.onStompError({ headers: { message: 'Forbidden' }, body: 'not the owner' }),
+    );
     expect(result.current.connectionStatus).toBe('ERROR');
   });
 
@@ -267,9 +292,13 @@ describe('useRealtimeMeasurement', () => {
     let resolveSnapshot: ((value: RealtimePressureMessage) => void) | undefined;
     vi.spyOn(measurementApi, 'snapshot').mockImplementation(() => {
       stompMock.actions.push('snapshot');
-      return new Promise((resolve) => { resolveSnapshot = resolve; });
+      return new Promise((resolve) => {
+        resolveSnapshot = resolve;
+      });
     });
-    const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{children}</AuthProvider>;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <AuthProvider>{children}</AuthProvider>
+    );
     const { result } = renderHook(() => useRealtimeMeasurement(sessionOne, true), { wrapper });
 
     await waitFor(() => expect(stompMock.callbacks).toHaveLength(1));

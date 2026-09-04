@@ -134,9 +134,11 @@ export const qualityFlagLabel = (flag: string): string => {
     INSUFFICIENT_DATA: '분석에 사용할 센서 데이터가 충분하지 않습니다.',
     LOW_DATA_QUALITY: '데이터 품질이 낮아 분석 결과의 신뢰도가 제한됩니다.',
     // 계약 1.1 / rule-v1.2.0에서 추가된 플래그(DEC-027, DEC-028, DEC-024)
-    SEQUENCE_WRAP_SUSPECTED: '센서 프레임 번호가 되감긴 것으로 의심됩니다. 프레임 순서 통계가 부정확할 수 있습니다.',
+    SEQUENCE_WRAP_SUSPECTED:
+      '센서 프레임 번호가 되감긴 것으로 의심됩니다. 프레임 순서 통계가 부정확할 수 있습니다.',
     SAMPLE_RATE_MISMATCH: '실제 수신 간격이 세션 전송률 설정과 맞지 않습니다.',
-    RECEIVER_UPLOAD_INCOMPLETE: '수신기가 업로드를 끝내지 못했습니다. 일부 프레임이 누락되었을 수 있습니다.',
+    RECEIVER_UPLOAD_INCOMPLETE:
+      '수신기가 업로드를 끝내지 못했습니다. 일부 프레임이 누락되었을 수 있습니다.',
     FSR_ERROR_REPORTED: '인솔이 압력 센서 오류를 보고했습니다.',
     IMU_ERROR_REPORTED: '인솔이 관성 센서(IMU) 오류를 보고했습니다.',
     BATTERY_LOW_REPORTED: '인솔 배터리가 낮다고 보고되었습니다.',

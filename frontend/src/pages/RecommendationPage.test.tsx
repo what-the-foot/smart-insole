@@ -27,7 +27,9 @@ describe('RecommendationPage', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByRole('heading', { name: '기본 발목 안정화 운동' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: '기본 발목 안정화 운동' }),
+    ).toBeInTheDocument();
     expect(getGuide).toHaveBeenCalledWith('ANKLE_STABILITY_BASIC');
     expect(screen.getByText('발뒤꿈치를 천천히 들어 올립니다.')).toBeInTheDocument();
     expect(screen.getByText('좌우 비대칭 경향')).toBeInTheDocument();

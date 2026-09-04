@@ -188,7 +188,8 @@ describe('LiveMeasurementPage', () => {
       startedAt: '2026-09-02T07:01:00Z',
       createdAt: '2026-09-02T07:00:00Z',
     });
-    const deviceList = vi.spyOn(deviceApi, 'list')
+    const deviceList = vi
+      .spyOn(deviceApi, 'list')
       .mockRejectedValueOnce(new Error('기기 목록을 불러오지 못했습니다.'))
       .mockResolvedValue([]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -205,7 +206,9 @@ describe('LiveMeasurementPage', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByRole('heading', { name: '정보를 불러오지 못했어요' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: '정보를 불러오지 못했어요' }),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '다시 시도' }));
     await waitFor(() => expect(deviceList).toHaveBeenCalledTimes(2));
     expect(measurementGet).toHaveBeenCalledTimes(2);
@@ -241,7 +244,9 @@ describe('LiveMeasurementPage', () => {
       });
     vi.spyOn(deviceApi, 'list').mockResolvedValue([]);
     const complete = vi.spyOn(measurementApi, 'complete').mockRejectedValue(new Error('응답 유실'));
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
 
     render(
       <QueryClientProvider client={client}>
@@ -292,7 +297,9 @@ describe('LiveMeasurementPage', () => {
       });
     vi.spyOn(deviceApi, 'list').mockResolvedValue([]);
     const cancel = vi.spyOn(measurementApi, 'cancel').mockRejectedValue(new Error('응답 유실'));
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
 
     render(
       <QueryClientProvider client={client}>

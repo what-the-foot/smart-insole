@@ -97,9 +97,9 @@ describe('FootPressureHeatmap', () => {
         side="LEFT"
       />,
     );
-    expect(Array.from(container.querySelectorAll('.sensor-label')).map((n) => n.textContent)).toEqual(
-      ['S01', 'S02', 'S03', 'S04', 'S05', 'S06', 'S07', 'S08'],
-    );
+    expect(
+      Array.from(container.querySelectorAll('.sensor-label')).map((n) => n.textContent),
+    ).toEqual(['S01', 'S02', 'S03', 'S04', 'S05', 'S06', 'S07', 'S08']);
     expect(container.querySelectorAll('.sensor-share')[7]).toHaveTextContent('20%');
   });
 

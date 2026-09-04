@@ -82,7 +82,8 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error: unknown) => {
-    if (axios.isAxiosError(error) && error.response?.status === 401) clearAuthSession('UNAUTHORIZED');
+    if (axios.isAxiosError(error) && error.response?.status === 401)
+      clearAuthSession('UNAUTHORIZED');
     return Promise.reject(toApiError(error));
   },
 );

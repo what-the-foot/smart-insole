@@ -54,16 +54,26 @@ export function SigninPage() {
     <main className="auth-page">
       <section className="auth-intro" aria-label="서비스 소개">
         <Link className="brand brand--light" to="/login">
-          <span className="brand__mark"><Icon name="activity" /></span>
+          <span className="brand__mark">
+            <Icon name="activity" />
+          </span>
           <span>바른걸음</span>
         </Link>
         <div className="auth-intro__content">
           <p className="eyebrow eyebrow--light">SMART INSOLE COMPANION</p>
-          <h1>걸음의 변화를<br />차분하게 살펴보세요.</h1>
+          <h1>
+            걸음의 변화를
+            <br />
+            차분하게 살펴보세요.
+          </h1>
           <p>양발 압력과 보행 패턴을 한눈에 확인하고, 다음 운동을 준비할 수 있습니다.</p>
         </div>
         <div className="auth-intro__footprint" aria-hidden="true">
-          <span /><span /><span /><span /><span />
+          <span />
+          <span />
+          <span />
+          <span />
+          <span />
         </div>
       </section>
 
@@ -72,9 +82,24 @@ export function SigninPage() {
           <p className="eyebrow">다시 만나 반가워요</p>
           <h2 id="signin-title">로그인</h2>
           <p className="muted">측정 기록과 운동 가이드를 이어서 확인하세요.</p>
-          {state?.notice ? <p className="notice notice--success" role="status"><Icon name="check" />{state.notice}</p> : null}
-          {signoutNotice ? <p className="notice notice--info" role="status"><Icon name="clock" />{signoutNotice}</p> : null}
-          {error ? <p className="form-error" role="alert"><Icon name="alert" />{error}</p> : null}
+          {state?.notice ? (
+            <p className="notice notice--success" role="status">
+              <Icon name="check" />
+              {state.notice}
+            </p>
+          ) : null}
+          {signoutNotice ? (
+            <p className="notice notice--info" role="status">
+              <Icon name="clock" />
+              {signoutNotice}
+            </p>
+          ) : null}
+          {error ? (
+            <p className="form-error" role="alert">
+              <Icon name="alert" />
+              {error}
+            </p>
+          ) : null}
           <form className="form-stack" onSubmit={handleSubmit}>
             <label className="field">
               <span>이메일</span>
@@ -103,12 +128,20 @@ export function SigninPage() {
                 value={password}
               />
             </label>
-            <button className="button button--full button--large" disabled={submitting} type="submit">
+            <button
+              className="button button--full button--large"
+              disabled={submitting}
+              type="submit"
+            >
               {submitting ? <Spinner label="로그인 중" /> : '로그인'}
             </button>
           </form>
-          <p className="auth-switch">아직 계정이 없나요? <Link to="/signup">회원가입</Link></p>
-          <p className="security-note"><Icon name="shield" />이 브라우저 탭을 닫으면 로그인 정보가 삭제됩니다.</p>
+          <p className="auth-switch">
+            아직 계정이 없나요? <Link to="/signup">회원가입</Link>
+          </p>
+          <p className="security-note">
+            <Icon name="shield" />이 브라우저 탭을 닫으면 로그인 정보가 삭제됩니다.
+          </p>
         </div>
       </section>
     </main>

@@ -76,12 +76,18 @@ describe('HistoryPage', () => {
   it('시작 날짜가 종료 날짜보다 늦으면 요청하지 않는다', async () => {
     const user = userEvent.setup();
     const list = vi.spyOn(measurementApi, 'list').mockResolvedValue({
-      items: [], page: 0, size: 10, totalElements: 0, totalPages: 0,
+      items: [],
+      page: 0,
+      size: 10,
+      totalElements: 0,
+      totalPages: 0,
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <MemoryRouter><HistoryPage /></MemoryRouter>
+        <MemoryRouter>
+          <HistoryPage />
+        </MemoryRouter>
       </QueryClientProvider>,
     );
     await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
@@ -89,7 +95,9 @@ describe('HistoryPage', () => {
     await user.type(screen.getByLabelText('종료 날짜'), '2026-09-02');
     await user.click(screen.getByRole('button', { name: '필터 적용' }));
 
-    expect(screen.getByRole('alert')).toHaveTextContent('시작 날짜는 종료 날짜보다 늦을 수 없습니다.');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '시작 날짜는 종료 날짜보다 늦을 수 없습니다.',
+    );
     expect(list).toHaveBeenCalledTimes(1);
   });
 });

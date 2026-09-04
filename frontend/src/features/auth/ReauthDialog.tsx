@@ -76,19 +76,45 @@ export function ReauthDialog({
         <p className="eyebrow">SESSION</p>
         <h2 id={titleId}>{reasonCopy[reason].title}</h2>
         <p className="muted">{reasonCopy[reason].description}</p>
-        {error ? <p className="form-error" role="alert"><Icon name="alert" />{error}</p> : null}
+        {error ? (
+          <p className="form-error" role="alert">
+            <Icon name="alert" />
+            {error}
+          </p>
+        ) : null}
         <form className="form-stack" onSubmit={handleSubmit}>
           <label className="field">
             <span>이메일</span>
-            <input autoComplete="email" name="email" onChange={(event) => setEmail(event.target.value)} readOnly={Boolean(user)} required type="email" value={email} />
+            <input
+              autoComplete="email"
+              name="email"
+              onChange={(event) => setEmail(event.target.value)}
+              readOnly={Boolean(user)}
+              required
+              type="email"
+              value={email}
+            />
           </label>
           <label className="field">
             <span>비밀번호</span>
-            <input autoComplete="current-password" maxLength={100} name="password" onChange={(event) => setPassword(event.target.value)} ref={passwordRef} required type="password" value={password} />
+            <input
+              autoComplete="current-password"
+              maxLength={100}
+              name="password"
+              onChange={(event) => setPassword(event.target.value)}
+              ref={passwordRef}
+              required
+              type="password"
+              value={password}
+            />
           </label>
           <div className="form-actions">
-            <button className="button button--secondary" onClick={onClose} type="button">나중에</button>
-            <button className="button" disabled={submitting} type="submit">{submitting ? <Spinner label="로그인 중" /> : '다시 로그인'}</button>
+            <button className="button button--secondary" onClick={onClose} type="button">
+              나중에
+            </button>
+            <button className="button" disabled={submitting} type="submit">
+              {submitting ? <Spinner label="로그인 중" /> : '다시 로그인'}
+            </button>
           </div>
         </form>
       </section>

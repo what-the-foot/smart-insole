@@ -81,7 +81,9 @@ describe('실시간 메시지 검증', () => {
       'BATTERY_LOW_REPORTED',
       'FILTERED_DATA_MODE',
     ];
-    expect(parseRealtimeValue({ ...valid, quality: { ...valid.quality, flags } }).quality.flags).toEqual(flags);
+    expect(
+      parseRealtimeValue({ ...valid, quality: { ...valid.quality, flags } }).quality.flags,
+    ).toEqual(flags);
   });
 
   it('중복된 품질 flag를 거부한다', () => {

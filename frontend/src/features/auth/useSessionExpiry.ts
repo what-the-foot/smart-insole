@@ -24,7 +24,10 @@ export function useSessionExpiry(): SessionExpiryState {
     // 경고 구간 전에는 경고 시작 시각까지 한 번만 깨어나고, 경고 구간에서는 1초 간격으로 갱신한다.
     if (!inWarningWindow) {
       const untilWarning = Math.max(0, session.expiresAt - SESSION_EXPIRY_WARNING_MS - Date.now());
-      const timer = window.setTimeout(() => setNow(Date.now()), Math.min(untilWarning, MAX_TIMER_MS));
+      const timer = window.setTimeout(
+        () => setNow(Date.now()),
+        Math.min(untilWarning, MAX_TIMER_MS),
+      );
       return () => window.clearTimeout(timer);
     }
     const interval = window.setInterval(() => setNow(Date.now()), TICK_MS);

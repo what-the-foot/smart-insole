@@ -25,12 +25,23 @@ export function SessionIdCopy({ sessionId }: { sessionId: string }) {
         <span>세션 ID (수신기 CLI --session-id)</span>
         <code>{sessionId}</code>
       </div>
-      <button className="button button--secondary button--compact" onClick={() => void handleCopy()} type="button">
+      <button
+        className="button button--secondary button--compact"
+        onClick={() => void handleCopy()}
+        type="button"
+      >
         <Icon name={state === 'copied' ? 'check' : 'device'} />
         세션 ID 복사
       </button>
-      <p aria-live="polite" className={`session-id-copy__status${state === 'failed' ? ' session-id-copy__status--error' : ''}`}>
-        {state === 'copied' ? '복사했습니다.' : state === 'failed' ? '복사하지 못했습니다. ID를 직접 선택해 복사해 주세요.' : ''}
+      <p
+        aria-live="polite"
+        className={`session-id-copy__status${state === 'failed' ? ' session-id-copy__status--error' : ''}`}
+      >
+        {state === 'copied'
+          ? '복사했습니다.'
+          : state === 'failed'
+            ? '복사하지 못했습니다. ID를 직접 선택해 복사해 주세요.'
+            : ''}
       </p>
     </div>
   );

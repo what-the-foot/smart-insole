@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Client, ReconnectionTimeMode, type IMessage, type StompSubscription } from '@stomp/stompjs';
+import {
+  Client,
+  ReconnectionTimeMode,
+  type IMessage,
+  type StompSubscription,
+} from '@stomp/stompjs';
 import { measurementApi } from '../../api/services';
 import { endpoints, WS_URL } from '../../api/config';
 import type { FootRealtimeData, RealtimePressureMessage } from '../../api/types';
@@ -69,27 +74,30 @@ export function useRealtimeMeasurement(sessionId: string, enabled: boolean): Rea
     lastMessageAt.current = null;
   }, []);
 
-  const acceptMessage = useCallback((next: RealtimePressureMessage) => {
-    if (next.sessionId !== sessionId) {
-      setError('현재 측정과 다른 실시간 메시지를 차단했습니다.');
-      return;
-    }
-    setMessage(next);
-    if (next.left) setLeft(next.left);
-    if (next.right) setRight(next.right);
-    setPeaks((previous) => {
-      const base: SessionPeaks =
-        previous.sessionId === sessionId ? previous : { sessionId, left: null, right: null };
-      return {
-        sessionId,
-        left: next.left ? higher(base.left, maxSensorValue(next.left)) : base.left,
-        right: next.right ? higher(base.right, maxSensorValue(next.right)) : base.right,
-      };
-    });
-    lastMessageAt.current = Date.now();
-    setDataStale(false);
-    setError(null);
-  }, [sessionId]);
+  const acceptMessage = useCallback(
+    (next: RealtimePressureMessage) => {
+      if (next.sessionId !== sessionId) {
+        setError('현재 측정과 다른 실시간 메시지를 차단했습니다.');
+        return;
+      }
+      setMessage(next);
+      if (next.left) setLeft(next.left);
+      if (next.right) setRight(next.right);
+      setPeaks((previous) => {
+        const base: SessionPeaks =
+          previous.sessionId === sessionId ? previous : { sessionId, left: null, right: null };
+        return {
+          sessionId,
+          left: next.left ? higher(base.left, maxSensorValue(next.left)) : base.left,
+          right: next.right ? higher(base.right, maxSensorValue(next.right)) : base.right,
+        };
+      });
+      lastMessageAt.current = Date.now();
+      setDataStale(false);
+      setError(null);
+    },
+    [sessionId],
+  );
 
   useEffect(() => {
     if (!enabled || !session) {
@@ -207,10 +215,8 @@ export function useRealtimeMeasurement(sessionId: string, enabled: boolean): Rea
     message: currentMessage,
     left: currentLeft,
     right: currentRight,
-    leftDisconnected:
-      currentMessage?.left === null || currentMessage?.left?.connected === false,
-    rightDisconnected:
-      currentMessage?.right === null || currentMessage?.right?.connected === false,
+    leftDisconnected: currentMessage?.left === null || currentMessage?.left?.connected === false,
+    rightDisconnected: currentMessage?.right === null || currentMessage?.right?.connected === false,
     leftPeak: currentPeaks?.left ?? null,
     rightPeak: currentPeaks?.right ?? null,
     dataStale: hasCurrentMessage && dataStale,

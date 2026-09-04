@@ -16,10 +16,7 @@ const rfc3339DateTimePattern =
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const hasExactKeys = (
-  value: Record<string, unknown>,
-  expectedKeys: readonly string[],
-): boolean => {
+const hasExactKeys = (value: Record<string, unknown>, expectedKeys: readonly string[]): boolean => {
   const actualKeys = Object.keys(value);
   return (
     actualKeys.length === expectedKeys.length &&

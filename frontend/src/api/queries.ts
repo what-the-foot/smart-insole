@@ -1,5 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { deviceApi, measurementApi, recommendationApi, type MeasurementListParams } from './services';
+import {
+  deviceApi,
+  measurementApi,
+  recommendationApi,
+  type MeasurementListParams,
+} from './services';
 
 export const queryKeys = {
   devices: ['devices'] as const,

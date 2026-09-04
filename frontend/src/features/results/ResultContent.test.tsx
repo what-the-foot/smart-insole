@@ -10,14 +10,28 @@ const result: AnalysisResultResponse = {
   status: 'COMPLETED',
   algorithmVersion: 'rule-v1.1.0',
   dataQuality: { score: 92, level: 'GOOD', missingFrameRate: 0.003, flags: [] },
-  gaitSummary: { validStepCount: 20, cadence: 108.2, leftContactTimeMs: 642, rightContactTimeMs: 608, symmetryIndex: 5.3 },
+  gaitSummary: {
+    validStepCount: 20,
+    cadence: 108.2,
+    leftContactTimeMs: 642,
+    rightContactTimeMs: 608,
+    symmetryIndex: 5.3,
+  },
   pressureDistribution: {
-    leftMedialRatio: 0.61, leftLateralRatio: 0.39, rightMedialRatio: 0.58,
-    rightLateralRatio: 0.42, leftHeelRatio: 0.35, rightHeelRatio: 0.34,
-    leftMidfootRatio: 0.25, rightMidfootRatio: 0.26,
-    leftForefootRatio: 0.4, rightForefootRatio: 0.4,
-    leftPeakPressure: 88.4, rightPeakPressure: 91.2,
-    leftMeanCoP: { x: 0.42, y: 0.67 }, rightMeanCoP: null,
+    leftMedialRatio: 0.61,
+    leftLateralRatio: 0.39,
+    rightMedialRatio: 0.58,
+    rightLateralRatio: 0.42,
+    leftHeelRatio: 0.35,
+    rightHeelRatio: 0.34,
+    leftMidfootRatio: 0.25,
+    rightMidfootRatio: 0.26,
+    leftForefootRatio: 0.4,
+    rightForefootRatio: 0.4,
+    leftPeakPressure: 88.4,
+    rightPeakPressure: 91.2,
+    leftMeanCoP: { x: 0.42, y: 0.67 },
+    rightMeanCoP: null,
   },
   patterns: [],
   recommendations: [],
@@ -28,14 +42,25 @@ const result: AnalysisResultResponse = {
 describe('결과 표시와 폴링', () => {
   it('처리 중에만 폴링하고 완료 후 중단한다', () => {
     expect(shouldPollResult(undefined)).toBe(true);
-    expect(shouldPollResult({ kind: 'processing', data: { sessionId: result.sessionId, status: 'PROCESSING', message: '분석 중' } })).toBe(true);
+    expect(
+      shouldPollResult({
+        kind: 'processing',
+        data: { sessionId: result.sessionId, status: 'PROCESSING', message: '분석 중' },
+      }),
+    ).toBe(true);
     expect(shouldPollResult({ kind: 'completed', data: result })).toBe(false);
   });
 
   it('패턴이 없어도 건강 상태·질환을 확정하지 않고 서버 disclaimer를 항상 표시한다', () => {
-    render(<MemoryRouter><ResultContent result={result} /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <ResultContent result={result} />
+      </MemoryRouter>,
+    );
     expect(screen.getByText('이번 측정에서 표시할 주요 패턴이 없습니다.')).toBeInTheDocument();
-    expect(screen.getByText(/질환 유무나 건강 상태를 확정하는 의미가 아닙니다/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/질환 유무나 건강 상태를 확정하는 의미가 아닙니다/),
+    ).toBeInTheDocument();
     expect(screen.getByText(result.disclaimer)).toBeInTheDocument();
     expect(screen.queryByText('평발입니다')).not.toBeInTheDocument();
     expect(screen.queryByText('치료됩니다')).not.toBeInTheDocument();
@@ -65,7 +90,11 @@ describe('결과 표시와 폴링', () => {
       },
     ],
   ])("결과 화면(%s)에 '최대 압력'·'CoP'·'정상' 문구를 렌더링하지 않는다", (_case, fixture) => {
-    const { container } = render(<MemoryRouter><ResultContent result={fixture} /></MemoryRouter>);
+    const { container } = render(
+      <MemoryRouter>
+        <ResultContent result={fixture} />
+      </MemoryRouter>,
+    );
     const text = container.textContent;
     expect(text).not.toMatch(/최대 압력/);
     expect(text).not.toMatch(/CoP/);
@@ -75,12 +104,20 @@ describe('결과 표시와 폴링', () => {
   });
 
   it('세션 정보가 있으면 sourceType·sampleRateHz 배지를 표시하고 시뮬레이션 결과를 안내한다', () => {
-    const device = render(<MemoryRouter><ResultContent result={result} session={{ sourceType: 'DEVICE', sampleRateHz: 50 }} /></MemoryRouter>);
+    const device = render(
+      <MemoryRouter>
+        <ResultContent result={result} session={{ sourceType: 'DEVICE', sampleRateHz: 50 }} />
+      </MemoryRouter>,
+    );
     expect(screen.getByText(/실기기 · 50Hz/)).toBeInTheDocument();
     expect(screen.queryByText(/시뮬레이션 세션의 결과입니다/)).not.toBeInTheDocument();
     device.unmount();
 
-    render(<MemoryRouter><ResultContent result={result} session={{ sourceType: 'SIMULATED', sampleRateHz: 100 }} /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <ResultContent result={result} session={{ sourceType: 'SIMULATED', sampleRateHz: 100 }} />
+      </MemoryRouter>,
+    );
     expect(screen.getByText(/시뮬레이션 · 100Hz/)).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('시뮬레이션 세션의 결과입니다.');
   });
@@ -119,15 +156,55 @@ describe('결과 표시와 폴링', () => {
         },
       ],
       observationSummary: [
-        { code: 'MEDIAL_LOAD_TENDENCY', observationLevel: 'REPEATEDLY_OBSERVED', occurrenceRate: 0.619, observedCount: 13, windowCount: 21 },
-        { code: 'LATERAL_LOAD_TENDENCY', observationLevel: 'NOT_OBSERVED', occurrenceRate: 0, observedCount: 0, windowCount: 21 },
-        { code: 'LEFT_RIGHT_ASYMMETRY', observationLevel: 'PARTIALLY_OBSERVED', occurrenceRate: 0.25, observedCount: 5, windowCount: 20 },
-        { code: 'LOW_HALLUX_SIGNAL', observationLevel: 'NOT_OBSERVED', occurrenceRate: 0.05, observedCount: 1, windowCount: 21 },
-        { code: 'FOREFOOT_LOAD_TENDENCY', observationLevel: 'NOT_OBSERVED', occurrenceRate: 0.1, observedCount: 2, windowCount: 21 },
-        { code: 'REARFOOT_LOAD_TENDENCY', observationLevel: 'NOT_OBSERVED', occurrenceRate: 0.14, observedCount: 3, windowCount: 21 },
+        {
+          code: 'MEDIAL_LOAD_TENDENCY',
+          observationLevel: 'REPEATEDLY_OBSERVED',
+          occurrenceRate: 0.619,
+          observedCount: 13,
+          windowCount: 21,
+        },
+        {
+          code: 'LATERAL_LOAD_TENDENCY',
+          observationLevel: 'NOT_OBSERVED',
+          occurrenceRate: 0,
+          observedCount: 0,
+          windowCount: 21,
+        },
+        {
+          code: 'LEFT_RIGHT_ASYMMETRY',
+          observationLevel: 'PARTIALLY_OBSERVED',
+          occurrenceRate: 0.25,
+          observedCount: 5,
+          windowCount: 20,
+        },
+        {
+          code: 'LOW_HALLUX_SIGNAL',
+          observationLevel: 'NOT_OBSERVED',
+          occurrenceRate: 0.05,
+          observedCount: 1,
+          windowCount: 21,
+        },
+        {
+          code: 'FOREFOOT_LOAD_TENDENCY',
+          observationLevel: 'NOT_OBSERVED',
+          occurrenceRate: 0.1,
+          observedCount: 2,
+          windowCount: 21,
+        },
+        {
+          code: 'REARFOOT_LOAD_TENDENCY',
+          observationLevel: 'NOT_OBSERVED',
+          occurrenceRate: 0.14,
+          observedCount: 3,
+          windowCount: 21,
+        },
       ],
     };
-    const { container } = render(<MemoryRouter><ResultContent result={observed} /></MemoryRouter>);
+    const { container } = render(
+      <MemoryRouter>
+        <ResultContent result={observed} />
+      </MemoryRouter>,
+    );
 
     const cards = container.querySelectorAll('.pattern-card');
     expect(cards).toHaveLength(2);
@@ -168,7 +245,11 @@ describe('결과 표시와 폴링', () => {
       ],
       observationSummary: null,
     };
-    const { container } = render(<MemoryRouter><ResultContent result={legacyPattern} /></MemoryRouter>);
+    const { container } = render(
+      <MemoryRouter>
+        <ResultContent result={legacyPattern} />
+      </MemoryRouter>,
+    );
     expect(screen.getAllByText(/관찰 단계 미제공\(이전 분석\)/)).toHaveLength(2);
     expect(container.querySelectorAll('.observation-group')).toHaveLength(0);
     expect(container.querySelectorAll('.share-bar')).toHaveLength(0);
@@ -191,7 +272,11 @@ describe('결과 표시와 폴링', () => {
         rightMeanCoP: null,
       },
     };
-    render(<MemoryRouter><ResultContent result={legacy} /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <ResultContent result={legacy} />
+      </MemoryRouter>,
+    );
     expect(screen.getByText('이전 분석')).toBeInTheDocument();
     expect(screen.getAllByText('제공 안 됨')).toHaveLength(6);
   });

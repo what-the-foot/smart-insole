@@ -58,7 +58,12 @@ describe('useSessionExpiry (fake timers)', () => {
 
   it('세션이 없으면 경고·만료 상태가 아니다', () => {
     const { result } = renderHook(() => useSessionExpiry(), { wrapper });
-    expect(result.current).toEqual({ expiresAt: null, remainingMs: null, warning: false, expired: false });
+    expect(result.current).toEqual({
+      expiresAt: null,
+      remainingMs: null,
+      warning: false,
+      expired: false,
+    });
   });
 
   it.each([
@@ -83,7 +88,11 @@ describe('SessionExpiryBanner (fake timers)', () => {
 
   it('5분 전에는 숨기고 경고 구간에서 배너와 재로그인 다이얼로그를 제공한다', () => {
     signin(6 * 60);
-    render(<AuthProvider><SessionExpiryBanner /></AuthProvider>);
+    render(
+      <AuthProvider>
+        <SessionExpiryBanner />
+      </AuthProvider>,
+    );
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     act(() => {
@@ -109,18 +118,27 @@ describe('SessionExpiryBanner (fake timers)', () => {
       expiresInSeconds: 3600,
       user,
     });
-    render(<AuthProvider><SessionExpiryBanner /></AuthProvider>);
+    render(
+      <AuthProvider>
+        <SessionExpiryBanner />
+      </AuthProvider>,
+    );
     expect(screen.getByRole('status')).toHaveTextContent('4분 후 만료');
 
     fireEvent.click(screen.getByRole('button', { name: '다시 로그인' }));
     const dialog = screen.getByRole('dialog');
-    fireEvent.change(within(dialog).getByLabelText('비밀번호'), { target: { value: 'safe-password' } });
+    fireEvent.change(within(dialog).getByLabelText('비밀번호'), {
+      target: { value: 'safe-password' },
+    });
     await act(async () => {
       fireEvent.click(within(dialog).getByRole('button', { name: '다시 로그인' }));
       await Promise.resolve();
     });
 
-    expect(signinApi).toHaveBeenCalledWith({ email: 'walker@example.com', password: 'safe-password' });
+    expect(signinApi).toHaveBeenCalledWith({
+      email: 'walker@example.com',
+      password: 'safe-password',
+    });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(window.sessionStorage.getItem('smart-insole.auth.v1')).toContain('fresh-token');
