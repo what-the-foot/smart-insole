@@ -93,11 +93,11 @@ class AnalysisJobStateServiceConcurrencyTest {
 
         assertThat(jobs.findById(retired.getId()).orElseThrow().getStatus()).isEqualTo(AnalysisJobStatus.FAILED);
         assertThat(recoverable).containsExactly(
-                new AnalysisJobStateService.JobKey(session.getId(), "rule-v1.1.0"));
-        assertThat(jobs.findBySessionIdAndAlgorithmVersion(session.getId(), "rule-v1.1.0")
+                new AnalysisJobStateService.JobKey(session.getId(), "rule-v1.2.0"));
+        assertThat(jobs.findBySessionIdAndAlgorithmVersion(session.getId(), "rule-v1.2.0")
                 .orElseThrow().getStatus()).isEqualTo(AnalysisJobStatus.PENDING);
         assertThat(states.pendingJobs()).containsExactly(
-                new AnalysisJobStateService.JobKey(session.getId(), "rule-v1.1.0"));
+                new AnalysisJobStateService.JobKey(session.getId(), "rule-v1.2.0"));
     }
 
     private boolean claimAfterBarrier(CountDownLatch ready, CountDownLatch start, UUID sessionId,

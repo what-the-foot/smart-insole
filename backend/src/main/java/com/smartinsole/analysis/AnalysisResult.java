@@ -55,6 +55,11 @@ public class AnalysisResult {
     @Column(name = "quality_flags_json", nullable = false, columnDefinition = "json")
     private String qualityFlagsJson;
 
+    /** rule-v1.2.0 observation summary (V7); null for results stored by earlier versions. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "observation_summary_json", columnDefinition = "json")
+    private String observationSummaryJson;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -65,7 +70,18 @@ public class AnalysisResult {
                           double missingFrameRate, double cadence, double leftContactTimeMs,
                           double rightContactTimeMs, double symmetryIndex, Integer validStepCount,
                           String pressureDistributionJson, String qualityFlagsJson, Instant createdAt) {
+        this(sessionId, algorithmVersion, qualityScore, qualityLevel, missingFrameRate, cadence, leftContactTimeMs,
+                rightContactTimeMs, symmetryIndex, validStepCount, pressureDistributionJson, qualityFlagsJson,
+                null, createdAt);
+    }
+
+    public AnalysisResult(UUID sessionId, String algorithmVersion, int qualityScore, QualityLevel qualityLevel,
+                          double missingFrameRate, double cadence, double leftContactTimeMs,
+                          double rightContactTimeMs, double symmetryIndex, Integer validStepCount,
+                          String pressureDistributionJson, String qualityFlagsJson,
+                          String observationSummaryJson, Instant createdAt) {
         this.id = UUID.randomUUID();
+        this.observationSummaryJson = observationSummaryJson;
         this.sessionId = sessionId;
         this.algorithmVersion = algorithmVersion;
         this.qualityScore = qualityScore;
@@ -94,5 +110,6 @@ public class AnalysisResult {
     public Integer getValidStepCount() { return validStepCount; }
     public String getPressureDistributionJson() { return pressureDistributionJson; }
     public String getQualityFlagsJson() { return qualityFlagsJson; }
+    public String getObservationSummaryJson() { return observationSummaryJson; }
     public Instant getCreatedAt() { return createdAt; }
 }

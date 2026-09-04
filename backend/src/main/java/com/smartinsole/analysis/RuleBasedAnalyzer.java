@@ -3,9 +3,10 @@ package com.smartinsole.analysis;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartinsole.analysis.AnalysisDtos.CenterOfPressure;
 import com.smartinsole.analysis.AnalysisDtos.ComputedAnalysis;
 import com.smartinsole.analysis.AnalysisDtos.ComputedPattern;
-import com.smartinsole.analysis.AnalysisDtos.CenterOfPressure;
+import com.smartinsole.analysis.AnalysisDtos.ObservationSummaryItem;
 import com.smartinsole.analysis.AnalysisDtos.PressureDistribution;
 import com.smartinsole.calibration.CalibrationProfile;
 import com.smartinsole.calibration.CalibrationProfileRepository;
@@ -13,26 +14,35 @@ import com.smartinsole.device.DeviceDtos.SensorPoint;
 import com.smartinsole.device.SensorLayout;
 import com.smartinsole.device.SensorLayoutRepository;
 import com.smartinsole.global.common.DomainTypes.FootSide;
+import com.smartinsole.global.common.DomainTypes.ObservationLevel;
 import com.smartinsole.global.common.DomainTypes.PatternSeverity;
 import com.smartinsole.global.common.DomainTypes.QualityLevel;
 import com.smartinsole.global.config.AnalysisProperties;
 import com.smartinsole.measurement.MeasurementQualityStats;
 import com.smartinsole.measurement.MeasurementSession;
 import com.smartinsole.measurement.PressureFrameRepository.StoredPressureFrame;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+/**
+ * rule-v1.2.0: quality -> calibration -> smoothing -> contact windows (valid steps) -> per-window
+ * features -> observation level per pattern code -> recommendations. Every window is one contact
+ * interval of one foot; LEFT_RIGHT_ASYMMETRY pairs left and right windows in receiver time order.
+ */
 @Component
 public class RuleBasedAnalyzer {
     private static final Logger log = LoggerFactory.getLogger(RuleBasedAnalyzer.class);
+    private static final String LOW_DATA_QUALITY_FLAG = "LOW_DATA_QUALITY";
     private final CalibrationProfileRepository calibrations;
     private final SensorLayoutRepository layouts;
     private final ObjectMapper objectMapper;
@@ -66,37 +76,37 @@ public class RuleBasedAnalyzer {
         Map<FootSide, List<NormalizedFrame>> bySide = filtered.stream()
                 .collect(java.util.stream.Collectors.groupingBy(NormalizedFrame::footSide,
                         () -> new EnumMap<>(FootSide.class), java.util.stream.Collectors.toList()));
+        List<NormalizedFrame> leftFrames = bySide.getOrDefault(FootSide.LEFT, List.of());
+        List<NormalizedFrame> rightFrames = bySide.getOrDefault(FootSide.RIGHT, List.of());
 
         QualitySummary quality = quality(storedQuality, bySide);
-        ContactSummary leftContact = contacts(bySide.getOrDefault(FootSide.LEFT, List.of()), session.getSampleRateHz());
-        ContactSummary rightContact = contacts(bySide.getOrDefault(FootSide.RIGHT, List.of()), session.getSampleRateHz());
-        int validStepCount = leftContact.count() + rightContact.count();
+        List<ContactWindow> leftWindows = windows(leftFrames, session.getSampleRateHz());
+        List<ContactWindow> rightWindows = windows(rightFrames, session.getSampleRateHz());
+        ContactSummary leftContact = ContactSummary.of(leftWindows);
+        ContactSummary rightContact = ContactSummary.of(rightWindows);
+        int validStepCount = leftWindows.size() + rightWindows.size();
         double symmetry = symmetry(leftContact.averageDurationMs(), rightContact.averageDurationMs());
         double cadence = cadence(bySide, validStepCount);
-        DistributionMetrics leftDistribution = distribution(bySide.getOrDefault(FootSide.LEFT, List.of()),
-                contexts.get(FootSide.LEFT).points());
-        DistributionMetrics rightDistribution = distribution(bySide.getOrDefault(FootSide.RIGHT, List.of()),
-                contexts.get(FootSide.RIGHT).points());
-        PressureDistribution responseDistribution = pressureDistribution(leftDistribution, rightDistribution);
+        DistributionMetrics leftDistribution = distribution(leftFrames, contexts.get(FootSide.LEFT).points());
+        DistributionMetrics rightDistribution = distribution(rightFrames, contexts.get(FootSide.RIGHT).points());
+        PressureDistribution responseDistribution = pressureDistribution(leftDistribution, rightDistribution,
+                sensorShare(leftFrames, leftWindows), sensorShare(rightFrames, rightWindows));
 
-        List<ComputedPattern> patterns = patterns(quality, leftContact, rightContact, symmetry,
-                leftDistribution, rightDistribution);
+        List<ObservationSummaryItem> observationSummary = observe(
+                new FootData(leftFrames, leftWindows, contexts.get(FootSide.LEFT).points()),
+                new FootData(rightFrames, rightWindows, contexts.get(FootSide.RIGHT).points()));
+        List<ComputedPattern> patterns = patterns(observationSummary);
         Set<String> recommendations = new LinkedHashSet<>();
+        if (quality.score() < properties.poorQualityScoreThreshold()) {
+            recommendations.add(PatternCatalog.REMEASURE_GUIDE);
+        }
         for (ComputedPattern pattern : patterns) {
-            switch (pattern.code()) {
-                case "LOW_DATA_QUALITY" -> recommendations.add("REMEASURE_GUIDE");
-                case "LEFT_RIGHT_ASYMMETRY", "SHORT_CONTACT_TIME" ->
-                        recommendations.add("ANKLE_STABILITY_BASIC");
-                case "MEDIAL_LOAD_TENDENCY", "LATERAL_LOAD_TENDENCY", "HIGH_MIDFOOT_LOAD" ->
-                        recommendations.add("BALANCED_FOOT_LOADING");
-                default -> { }
-            }
+            recommendations.add(PatternCatalog.definition(pattern.code()).recommendationCode());
         }
         return new ComputedAnalysis(quality.score(), quality.level(), quality.missingRate(),
                 List.copyOf(quality.flags()), cadence, leftContact.averageDurationMs(),
                 rightContact.averageDurationMs(), symmetry, validStepCount, responseDistribution,
-                leftDistribution.midfootRatio(), rightDistribution.midfootRatio(),
-                List.copyOf(patterns), List.copyOf(recommendations));
+                List.copyOf(patterns), List.copyOf(observationSummary), List.copyOf(recommendations));
     }
 
     private static NormalizedFrame calibrate(StoredPressureFrame raw, FootContext context, int adcMax) {
@@ -105,7 +115,10 @@ public class RuleBasedAnalyzer {
             values.add(normalize(raw.sensorValues().get(index), context.baselines().get(index),
                     context.scales().get(index), adcMax));
         }
-        return new NormalizedFrame(raw.footSide(), raw.sequence(), raw.deviceTimeMs(), List.copyOf(values));
+        // Pairing key for left/right windows: per-frame receiver time (1.1) or the batch receipt time.
+        Instant pairingTime = raw.receiverReceivedAt() != null ? raw.receiverReceivedAt() : raw.receivedAt();
+        return new NormalizedFrame(raw.footSide(), raw.sequence(), raw.deviceTimeMs(), pairingTime,
+                List.copyOf(values));
     }
 
     private static List<NormalizedFrame> movingAverage(List<NormalizedFrame> input) {
@@ -126,8 +139,9 @@ public class RuleBasedAnalyzer {
                     for (int sample = from; sample <= to; sample++) sum += frames.get(sample).values().get(sensor);
                     values.add(sum / (to - from + 1));
                 }
-                result.add(new NormalizedFrame(side, frames.get(index).sequence(),
-                        frames.get(index).deviceTimeMs(), List.copyOf(values)));
+                NormalizedFrame source = frames.get(index);
+                result.add(new NormalizedFrame(side, source.sequence(), source.deviceTimeMs(),
+                        source.pairingTime(), List.copyOf(values)));
             }
         }
         return result.stream().sorted(Comparator.comparingLong(NormalizedFrame::deviceTimeMs)
@@ -164,44 +178,69 @@ public class RuleBasedAnalyzer {
                 ? score >= 85 ? QualityLevel.GOOD
                     : score >= properties.poorQualityScoreThreshold() ? QualityLevel.ACCEPTABLE : QualityLevel.POOR
                 : stats.getLevel();
+        // LOW_DATA_QUALITY is a quality flag (not a pattern) since rule-v1.2.0.
+        if (score < properties.poorQualityScoreThreshold()) {
+            flags.add(LOW_DATA_QUALITY_FLAG);
+        }
         return new QualitySummary(score, level, missing, flags);
     }
 
-    private ContactSummary contacts(List<NormalizedFrame> frames, int sampleRate) {
+    private List<ContactWindow> windows(List<NormalizedFrame> frames, int sampleRate) {
         int sensorCount = frames.isEmpty() ? 0 : frames.getFirst().values().size();
-        return contactsFromTotals(frames.stream().map(NormalizedFrame::deviceTimeMs).toList(),
-                frames.stream().map(frame -> frame.values().stream().mapToDouble(Double::doubleValue).sum()).toList(),
+        return contactWindows(frames.stream().map(NormalizedFrame::deviceTimeMs).toList(),
+                frames.stream().map(frame -> total(frame.values())).toList(),
                 sampleRate, properties.contactThreshold(sensorCount));
+    }
+
+    /**
+     * Splits one foot's frames (already in time order) into contact windows: runs of frames whose total
+     * is at or above the contact threshold. A device-time gap longer than three sample periods closes
+     * the current window so a window never spans a transmission hole.
+     */
+    static List<ContactWindow> contactWindows(List<Long> deviceTimes, List<Double> pressureTotals,
+                                              int sampleRate, double contactThreshold) {
+        if (deviceTimes.size() != pressureTotals.size()) {
+            throw new IllegalArgumentException("Device times and pressure totals must have the same size");
+        }
+        List<ContactWindow> windows = new ArrayList<>();
+        if (deviceTimes.isEmpty()) return windows;
+        double samplePeriod = 1000.0 / sampleRate;
+        double maximumContiguousDelta = samplePeriod * 3;
+        Integer startIndex = null;
+        Long start = null;
+        Long previousTime = null;
+        int previousIndex = -1;
+        for (int index = 0; index < deviceTimes.size(); index++) {
+            long deviceTime = deviceTimes.get(index);
+            if (previousTime != null && deviceTime - previousTime > maximumContiguousDelta && start != null) {
+                windows.add(window(startIndex, previousIndex, start, previousTime, samplePeriod));
+                start = null;
+                startIndex = null;
+            }
+            boolean contact = pressureTotals.get(index) >= contactThreshold;
+            if (contact && start == null) {
+                start = deviceTime;
+                startIndex = index;
+            }
+            if (!contact && start != null) {
+                windows.add(window(startIndex, previousIndex, start, previousTime, samplePeriod));
+                start = null;
+                startIndex = null;
+            }
+            previousTime = deviceTime;
+            previousIndex = index;
+        }
+        if (start != null) windows.add(window(startIndex, previousIndex, start, previousTime, samplePeriod));
+        return windows;
+    }
+
+    private static ContactWindow window(int startIndex, int endIndex, long start, long end, double samplePeriod) {
+        return new ContactWindow(startIndex, endIndex, start, end, Math.max(samplePeriod, end - start + samplePeriod));
     }
 
     static ContactSummary contactsFromTotals(List<Long> deviceTimes, List<Double> pressureTotals,
                                              int sampleRate, double contactThreshold) {
-        if (deviceTimes.size() != pressureTotals.size()) {
-            throw new IllegalArgumentException("Device times and pressure totals must have the same size");
-        }
-        if (deviceTimes.isEmpty()) return new ContactSummary(0, 0);
-        List<Double> durations = new ArrayList<>();
-        Long start = null;
-        Long previousTime = null;
-        double samplePeriod = 1000.0 / sampleRate;
-        double maximumContiguousDelta = samplePeriod * 3;
-        for (int index = 0; index < deviceTimes.size(); index++) {
-            long deviceTime = deviceTimes.get(index);
-            if (previousTime != null && deviceTime - previousTime > maximumContiguousDelta && start != null) {
-                durations.add(Math.max(samplePeriod, previousTime - start + samplePeriod));
-                start = null;
-            }
-            boolean contact = pressureTotals.get(index) >= contactThreshold;
-            if (contact && start == null) start = deviceTime;
-            if (!contact && start != null) {
-                durations.add(Math.max(samplePeriod, previousTime - start + samplePeriod));
-                start = null;
-            }
-            previousTime = deviceTime;
-        }
-        if (start != null) durations.add(Math.max(samplePeriod, previousTime - start + samplePeriod));
-        return new ContactSummary(durations.size(), durations.stream().mapToDouble(Double::doubleValue)
-                .average().orElse(0));
+        return ContactSummary.of(contactWindows(deviceTimes, pressureTotals, sampleRate, contactThreshold));
     }
 
     private static double cadence(Map<FootSide, List<NormalizedFrame>> bySide, int contacts) {
@@ -240,15 +279,16 @@ public class RuleBasedAnalyzer {
             List<List<Double>> leftFrames, List<SensorPoint> leftPoints,
             List<List<Double>> rightFrames, List<SensorPoint> rightPoints) {
         return pressureDistribution(distributionValues(leftFrames, leftPoints),
-                distributionValues(rightFrames, rightPoints));
+                distributionValues(rightFrames, rightPoints), null, null);
     }
 
-    private static PressureDistribution pressureDistribution(DistributionMetrics left,
-                                                             DistributionMetrics right) {
+    private static PressureDistribution pressureDistribution(DistributionMetrics left, DistributionMetrics right,
+                                                             List<Double> leftShare, List<Double> rightShare) {
         return new PressureDistribution(left.medialRatio(), left.lateralRatio(),
                 right.medialRatio(), right.lateralRatio(), left.heelRatio(), right.heelRatio(),
                 left.midfootRatio(), right.midfootRatio(), left.forefootRatio(), right.forefootRatio(),
-                left.peakPressure(), right.peakPressure(), left.meanCoP(), right.meanCoP());
+                left.peakPressure(), right.peakPressure(), left.meanCoP(), right.meanCoP(),
+                leftShare, rightShare);
     }
 
     private static DistributionMetrics distribution(List<NormalizedFrame> frames, List<SensorPoint> points) {
@@ -256,8 +296,9 @@ public class RuleBasedAnalyzer {
     }
 
     private static DistributionMetrics distributionValues(List<List<Double>> frames, List<SensorPoint> points) {
-        double total = 0, medial = 0, lateral = 0, heel = 0, midfoot = 0, forefoot = 0;
+        double total = 0, medial = 0, lateral = 0, heel = 0, midfoot = 0, forefoot = 0, hallux = 0;
         double peak = 0, weightedX = 0, weightedY = 0;
+        boolean hasHalluxSensor = points.stream().anyMatch(RuleBasedAnalyzer::isHallux);
         for (List<Double> frame : frames) {
             for (int index = 0; index < frame.size(); index++) {
                 double value = frame.get(index);
@@ -271,6 +312,7 @@ public class RuleBasedAnalyzer {
                 if ("HEEL".equals(point.region())) heel += value;
                 if ("MIDFOOT".equals(point.region())) midfoot += value;
                 if ("FOREFOOT".equals(point.region()) || "TOE".equals(point.region())) forefoot += value;
+                if (isHallux(point)) hallux += value;
             }
         }
         double sideTotal = medial + lateral;
@@ -280,52 +322,134 @@ public class RuleBasedAnalyzer {
                 total == 0 ? 0 : midfoot / total,
                 total == 0 ? 0 : forefoot / total,
                 peak,
-                total == 0 ? null : new CenterOfPressure(weightedX / total, weightedY / total));
+                total == 0 ? null : new CenterOfPressure(weightedX / total, weightedY / total),
+                !hasHalluxSensor || total == 0 ? null : hallux / total * 100.0);
     }
 
-    private List<ComputedPattern> patterns(QualitySummary quality, ContactSummary left,
-                                           ContactSummary right, double symmetry,
-                                           DistributionMetrics leftDistribution,
-                                           DistributionMetrics rightDistribution) {
-        List<ComputedPattern> patterns = new ArrayList<>();
-        if (quality.score() < properties.poorQualityScoreThreshold()) {
-            patterns.add(new ComputedPattern("LOW_DATA_QUALITY", PatternSeverity.RECHECK,
-                    "데이터 품질 확인 필요", "데이터 품질이 낮아 같은 조건에서 재측정을 권장합니다.",
-                    "품질 점수는 " + quality.score() + "점이며 기능 검증용 기준보다 낮았습니다."));
+    /** The hallux (big toe) sensor: TOE region on the medial side (S08 in layout-s01s08-v1). */
+    private static boolean isHallux(SensorPoint point) {
+        return "TOE".equals(point.region()) && "MEDIAL".equals(point.medialLateral());
+    }
+
+    /**
+     * Contact-frame mean of each sensor's share of the frame total (sensor / total x 100), in layout
+     * index order and renormalised to sum to 100. Null when the foot has no contact frame.
+     */
+    static List<Double> sensorShare(List<NormalizedFrame> frames, List<ContactWindow> windows) {
+        if (frames.isEmpty()) return null;
+        int sensors = frames.getFirst().values().size();
+        double[] sums = new double[sensors];
+        int counted = 0;
+        for (ContactWindow window : windows) {
+            for (int index = window.startIndex(); index <= window.endIndex(); index++) {
+                List<Double> values = frames.get(index).values();
+                double total = total(values);
+                if (total <= 0) continue;
+                for (int sensor = 0; sensor < sensors; sensor++) {
+                    sums[sensor] += values.get(sensor) / total * 100.0;
+                }
+                counted++;
+            }
         }
-        if (left.averageDurationMs() > 0 && right.averageDurationMs() > 0
-                && symmetry >= properties.asymmetryThresholdPercent()) {
-            patterns.add(new ComputedPattern("LEFT_RIGHT_ASYMMETRY", PatternSeverity.CAUTION,
-                    "좌우 접촉 시간 차이", "왼발과 오른발의 접촉 시간 차이가 관찰되었습니다.",
-                    String.format(java.util.Locale.ROOT, "기능 검증용 좌우 지수는 %.1f%%입니다.", symmetry)));
+        if (counted == 0) return null;
+        double sum = 0;
+        for (double value : sums) sum += value;
+        List<Double> share = new ArrayList<>(sensors);
+        for (double value : sums) share.add(sum == 0 ? 0.0 : value / sum * 100.0);
+        return List.copyOf(share);
+    }
+
+    private static double total(List<Double> values) {
+        double total = 0;
+        for (double value : values) total += value;
+        return total;
+    }
+
+    /**
+     * Evaluates the six rule-v1.2.0 codes over the valid-step windows. Foot-level codes count every
+     * window of both feet; LOW_HALLUX_SIGNAL only counts windows of feet whose layout has a hallux
+     * sensor; LEFT_RIGHT_ASYMMETRY counts left/right window pairs in receiver time order.
+     */
+    private List<ObservationSummaryItem> observe(FootData left, FootData right) {
+        List<DistributionMetrics> windowMetrics = new ArrayList<>();
+        for (FootData foot : List.of(left, right)) {
+            for (ContactWindow window : foot.windows()) {
+                List<List<Double>> values = foot.frames().subList(window.startIndex(), window.endIndex() + 1)
+                        .stream().map(NormalizedFrame::values).toList();
+                windowMetrics.add(distributionValues(values, foot.points()));
+            }
         }
-        if (Math.max(leftDistribution.medialRatio(), rightDistribution.medialRatio())
-                >= properties.medialRatioThreshold()) {
-            patterns.add(new ComputedPattern("MEDIAL_LOAD_TENDENCY", PatternSeverity.INFO,
-                    "내측 압력 집중 경향", "발 안쪽 압력이 상대적으로 집중되는 경향이 관찰되었습니다.",
-                    "센서 영역별 상대 압력 비율을 기능 검증용 기준과 비교했습니다."));
+        int windows = windowMetrics.size();
+        List<DistributionMetrics> halluxWindows = windowMetrics.stream()
+                .filter(metrics -> metrics.halluxSharePct() != null).toList();
+        List<ContactWindow> leftOrdered = pairingOrder(left);
+        List<ContactWindow> rightOrdered = pairingOrder(right);
+        int pairs = Math.min(leftOrdered.size(), rightOrdered.size());
+        int asymmetric = 0;
+        for (int index = 0; index < pairs; index++) {
+            if (symmetry(leftOrdered.get(index).durationMs(), rightOrdered.get(index).durationMs())
+                    >= properties.asymmetryThresholdPercent()) {
+                asymmetric++;
+            }
         }
-        if (Math.max(leftDistribution.lateralRatio(), rightDistribution.lateralRatio())
-                >= properties.lateralRatioThreshold()) {
-            patterns.add(new ComputedPattern("LATERAL_LOAD_TENDENCY", PatternSeverity.INFO,
-                    "외측 압력 집중 경향", "발 바깥쪽 압력이 상대적으로 집중되는 경향이 관찰되었습니다.",
-                    "센서 영역별 상대 압력 비율을 기능 검증용 기준과 비교했습니다."));
-        }
-        if (Math.max(leftDistribution.midfootRatio(), rightDistribution.midfootRatio())
-                >= properties.midfootRatioThreshold()) {
-            patterns.add(new ComputedPattern("HIGH_MIDFOOT_LOAD", PatternSeverity.INFO,
-                    "중족부 압력 비율", "중족부 압력 비율이 상대적으로 높게 관찰되었습니다.",
-                    "센서 배치의 MIDFOOT 영역 비율을 기능 검증용 기준과 비교했습니다."));
-        }
-        boolean shortContact = left.averageDurationMs() > 0
-                && left.averageDurationMs() < properties.shortContactTimeMs()
-                || right.averageDurationMs() > 0 && right.averageDurationMs() < properties.shortContactTimeMs();
-        if (shortContact) {
-            patterns.add(new ComputedPattern("SHORT_CONTACT_TIME", PatternSeverity.INFO,
-                    "짧은 접촉 시간 경향", "일부 발의 평균 접촉 시간이 짧게 관찰되었습니다.",
-                    "평균 접촉 시간을 기능 검증용 기준과 비교했습니다."));
-        }
-        return patterns;
+        List<ObservationSummaryItem> summary = new ArrayList<>(PatternCatalog.CODES.size());
+        summary.add(item(PatternCatalog.MEDIAL_LOAD_TENDENCY,
+                count(windowMetrics, metrics -> metrics.medialRatio() >= properties.medialRatioThreshold()), windows));
+        summary.add(item(PatternCatalog.LATERAL_LOAD_TENDENCY,
+                count(windowMetrics, metrics -> metrics.lateralRatio() >= properties.lateralRatioThreshold()), windows));
+        summary.add(item(PatternCatalog.LEFT_RIGHT_ASYMMETRY, asymmetric, pairs));
+        summary.add(item(PatternCatalog.LOW_HALLUX_SIGNAL,
+                count(halluxWindows, metrics -> metrics.halluxSharePct() < properties.halluxSharePctThreshold()),
+                halluxWindows.size()));
+        summary.add(item(PatternCatalog.FOREFOOT_LOAD_TENDENCY,
+                count(windowMetrics, metrics -> metrics.forefootRatio() >= properties.forefootRatioThreshold()), windows));
+        summary.add(item(PatternCatalog.REARFOOT_LOAD_TENDENCY,
+                count(windowMetrics, metrics -> metrics.heelRatio() >= properties.rearfootRatioThreshold()), windows));
+        return summary;
+    }
+
+    private static List<ContactWindow> pairingOrder(FootData foot) {
+        return foot.windows().stream()
+                .sorted(Comparator.comparing((ContactWindow window) -> foot.frames().get(window.startIndex()).pairingTime())
+                        .thenComparingLong(ContactWindow::startDeviceTimeMs))
+                .toList();
+    }
+
+    private static int count(List<DistributionMetrics> metrics, java.util.function.Predicate<DistributionMetrics> test) {
+        return (int) metrics.stream().filter(test).count();
+    }
+
+    private ObservationSummaryItem item(String code, int observed, int windows) {
+        double rate = windows == 0 ? 0.0 : (double) observed / windows;
+        return new ObservationSummaryItem(code, level(rate, windows), rate, observed, windows);
+    }
+
+    ObservationLevel level(double rate, int windows) {
+        if (windows < properties.minObservationWindows()) return ObservationLevel.NOT_OBSERVED;
+        if (rate >= properties.repeatedObservationRate()) return ObservationLevel.REPEATEDLY_OBSERVED;
+        if (rate >= properties.partialObservationRate()) return ObservationLevel.PARTIALLY_OBSERVED;
+        return ObservationLevel.NOT_OBSERVED;
+    }
+
+    /** Patterns are the PARTIALLY/REPEATEDLY observed codes, strongest first. */
+    private static List<ComputedPattern> patterns(List<ObservationSummaryItem> summary) {
+        return summary.stream()
+                .filter(item -> item.observationLevel() != ObservationLevel.NOT_OBSERVED)
+                .sorted(Comparator.comparing(ObservationSummaryItem::observationLevel).reversed()
+                        .thenComparing(Comparator.comparingDouble(ObservationSummaryItem::occurrenceRate).reversed())
+                        .thenComparingInt(item -> PatternCatalog.CODES.indexOf(item.code())))
+                .map(RuleBasedAnalyzer::pattern)
+                .toList();
+    }
+
+    private static ComputedPattern pattern(ObservationSummaryItem item) {
+        PatternCatalog.Definition definition = PatternCatalog.definition(item.code());
+        PatternSeverity severity = item.observationLevel() == ObservationLevel.REPEATEDLY_OBSERVED
+                ? PatternSeverity.CAUTION : PatternSeverity.INFO;
+        String evidence = String.format(Locale.ROOT, "%s %d회 중 %d회(%.0f%%)에서 기능 검증용 기준을 넘었습니다.",
+                definition.windowNoun(), item.windowCount(), item.observedCount(), item.occurrenceRate() * 100.0);
+        return new ComputedPattern(item.code(), severity, definition.title(), definition.message(), evidence,
+                item.observationLevel(), item.occurrenceRate(), item.observedCount(), item.windowCount());
     }
 
     private FootContext context(java.util.UUID calibrationId, String layoutVersion) {
@@ -341,11 +465,21 @@ public class RuleBasedAnalyzer {
         }
     }
 
-    private record NormalizedFrame(FootSide footSide, long sequence, long deviceTimeMs, List<Double> values) { }
+    record NormalizedFrame(FootSide footSide, long sequence, long deviceTimeMs, Instant pairingTime,
+                           List<Double> values) { }
     private record FootContext(List<Double> baselines, List<Double> scales, List<SensorPoint> points) { }
-    record ContactSummary(int count, double averageDurationMs) { }
+    private record FootData(List<NormalizedFrame> frames, List<ContactWindow> windows, List<SensorPoint> points) { }
+    /** One contact interval (valid step) of one foot: frame index range plus duration. */
+    record ContactWindow(int startIndex, int endIndex, long startDeviceTimeMs, long endDeviceTimeMs,
+                         double durationMs) { }
+    record ContactSummary(int count, double averageDurationMs) {
+        static ContactSummary of(List<ContactWindow> windows) {
+            return new ContactSummary(windows.size(), windows.stream()
+                    .mapToDouble(ContactWindow::durationMs).average().orElse(0));
+        }
+    }
     private record DistributionMetrics(double medialRatio, double lateralRatio,
                                        double heelRatio, double midfootRatio, double forefootRatio,
-                                       double peakPressure, CenterOfPressure meanCoP) { }
+                                       double peakPressure, CenterOfPressure meanCoP, Double halluxSharePct) { }
     record QualitySummary(int score, QualityLevel level, double missingRate, Set<String> flags) { }
 }

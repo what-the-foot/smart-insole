@@ -49,6 +49,8 @@ class AnalysisResultQueryServiceTest {
         assertThat(body.pressureDistribution().rightForefootRatio()).isNull();
         assertThat(body.pressureDistribution().leftPeakPressure()).isNull();
         assertThat(body.pressureDistribution().leftMeanCoP()).isNull();
+        assertThat(body.pressureDistribution().leftSensorSharePct()).isNull();
+        assertThat(body.observationSummary()).isNull();
     }
 
     private static MeasurementSession completedSession(UUID userId, Instant now) {

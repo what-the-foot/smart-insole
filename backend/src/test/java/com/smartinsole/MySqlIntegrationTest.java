@@ -57,6 +57,8 @@ class MySqlIntegrationTest {
         registry.add("app.auth.jwt-secret",
                 () -> "mysql-test-only-secret-key-with-at-least-thirty-two-bytes");
         registry.add("app.receiver.api-key", () -> "mysql-test-receiver-key");
+        // One contact window per foot in this scenario; observe patterns from a single window.
+        registry.add("app.analysis.min-observation-windows", () -> "1");
     }
 
     @Autowired Flyway flyway;
@@ -72,7 +74,7 @@ class MySqlIntegrationTest {
 
     @Test
     void validatesSchemaBatchIdempotencyWindowQueriesAndHistoryOnRealMySql() throws Exception {
-        assertThat(flyway.info().applied()).hasSizeGreaterThanOrEqualTo(4);
+        assertThat(flyway.info().applied()).hasSizeGreaterThanOrEqualTo(7);
         UUID userId = auth.signup(new SignupRequest("mysql@example.com", "password123", "MySQL Test")).userId();
         DeviceResponse left = devices.register(userId, device("MYSQL-L-001", FootSide.LEFT));
         DeviceResponse right = devices.register(userId, device("MYSQL-R-001", FootSide.RIGHT));
@@ -108,7 +110,7 @@ class MySqlIntegrationTest {
         }
         assertThat(sessions.findById(sessionId).orElseThrow().getStatus()).isEqualTo(MeasurementStatus.COMPLETED);
         List<AnalysisPattern> storedPatterns = patterns.findAllByAnalysisResultIdOrderBySortOrder(
-                results.findBySessionIdAndAlgorithmVersion(sessionId, "rule-v1.1.0").orElseThrow().getId());
+                results.findBySessionIdAndAlgorithmVersion(sessionId, "rule-v1.2.0").orElseThrow().getId());
         assertThat(storedPatterns).isNotEmpty();
         String patternCode = storedPatterns.getFirst().getPatternCode();
         var history = measurements.list(userId, 0, 20, MeasurementStatus.COMPLETED,
@@ -118,7 +120,7 @@ class MySqlIntegrationTest {
     }
 
     private static RegisterDeviceRequest device(String serial, FootSide side) {
-        return new RegisterDeviceRequest(serial, serial, side, 8, "layout-v1", "0.1.0");
+        return new RegisterDeviceRequest(serial, serial, side, 8, "layout-s01s08-v1", "0.2.0");
     }
 
     private static List<PressureFrameInput> frames(DeviceResponse left, DeviceResponse right,

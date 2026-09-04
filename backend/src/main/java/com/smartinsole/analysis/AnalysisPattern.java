@@ -1,5 +1,6 @@
 package com.smartinsole.analysis;
 
+import com.smartinsole.global.common.DomainTypes.ObservationLevel;
 import com.smartinsole.global.common.DomainTypes.PatternSeverity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -40,11 +41,28 @@ public class AnalysisPattern {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
+    // rule-v1.2.0 observation fields (V7); null for patterns stored by earlier versions.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "observation_level", length = 24)
+    private ObservationLevel observationLevel;
+    @Column(name = "occurrence_rate")
+    private Double occurrenceRate;
+    @Column(name = "observed_count")
+    private Integer observedCount;
+    @Column(name = "window_count")
+    private Integer windowCount;
+
     protected AnalysisPattern() {
     }
 
     public AnalysisPattern(UUID resultId, String code, PatternSeverity severity, String title,
                            String message, String evidence, int sortOrder) {
+        this(resultId, code, severity, title, message, evidence, sortOrder, null, null, null, null);
+    }
+
+    public AnalysisPattern(UUID resultId, String code, PatternSeverity severity, String title,
+                           String message, String evidence, int sortOrder, ObservationLevel observationLevel,
+                           Double occurrenceRate, Integer observedCount, Integer windowCount) {
         this.analysisResultId = resultId;
         this.patternCode = code;
         this.severity = severity;
@@ -52,6 +70,10 @@ public class AnalysisPattern {
         this.message = message;
         this.evidence = evidence;
         this.sortOrder = sortOrder;
+        this.observationLevel = observationLevel;
+        this.occurrenceRate = occurrenceRate;
+        this.observedCount = observedCount;
+        this.windowCount = windowCount;
     }
 
     public String getPatternCode() { return patternCode; }
@@ -59,4 +81,8 @@ public class AnalysisPattern {
     public String getTitle() { return title; }
     public String getMessage() { return message; }
     public String getEvidence() { return evidence; }
+    public ObservationLevel getObservationLevel() { return observationLevel; }
+    public Double getOccurrenceRate() { return occurrenceRate; }
+    public Integer getObservedCount() { return observedCount; }
+    public Integer getWindowCount() { return windowCount; }
 }

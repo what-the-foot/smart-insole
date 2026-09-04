@@ -7,6 +7,7 @@ import com.smartinsole.analysis.AnalysisDtos.AnalysisPendingResponse;
 import com.smartinsole.analysis.AnalysisDtos.AnalysisResultResponse;
 import com.smartinsole.analysis.AnalysisDtos.DataQualityResult;
 import com.smartinsole.analysis.AnalysisDtos.GaitSummary;
+import com.smartinsole.analysis.AnalysisDtos.ObservationSummaryItem;
 import com.smartinsole.analysis.AnalysisDtos.PatternResult;
 import com.smartinsole.analysis.AnalysisDtos.PressureDistribution;
 import com.smartinsole.analysis.AnalysisDtos.RecommendationSummary;
@@ -72,7 +73,12 @@ public class AnalysisResultQueryService {
                 .orElseThrow(() -> new IllegalStateException("Completed session has no analysis result"));
         List<PatternResult> patternResponses = patterns.findAllByAnalysisResultIdOrderBySortOrder(result.getId())
                 .stream().map(pattern -> new PatternResult(pattern.getPatternCode(), pattern.getSeverity(),
-                        pattern.getTitle(), pattern.getMessage(), pattern.getEvidence())).toList();
+                        pattern.getTitle(), pattern.getMessage(), pattern.getEvidence(),
+                        pattern.getObservationLevel(), pattern.getOccurrenceRate(), pattern.getObservedCount(),
+                        pattern.getWindowCount())).toList();
+        // Results stored before rule-v1.2.0 have no summary; they are returned as null, never re-derived.
+        List<ObservationSummaryItem> observationSummary = result.getObservationSummaryJson() == null ? null
+                : parse(result.getObservationSummaryJson(), new TypeReference<>() { });
         List<String> recommendationCodes = jdbcTemplate.queryForList("""
                         SELECT recommendation_code FROM result_recommendations
                         WHERE analysis_result_id = ? ORDER BY sort_order
@@ -89,7 +95,7 @@ public class AnalysisResultQueryService {
                 new GaitSummary(result.getCadence(), result.getLeftContactTimeMs(),
                         result.getRightContactTimeMs(), result.getSymmetryIndex(), result.getValidStepCount()),
                 parse(result.getPressureDistributionJson(), new TypeReference<>() { }), patternResponses,
-                recommendationResponses, DISCLAIMER, result.getCreatedAt()));
+                observationSummary, recommendationResponses, DISCLAIMER, result.getCreatedAt()));
     }
 
     private <T> T parse(String json, TypeReference<T> type) {

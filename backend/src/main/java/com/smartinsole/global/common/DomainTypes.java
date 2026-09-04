@@ -18,4 +18,9 @@ public final class DomainTypes {
     public enum DataMode { RAW, FILTERED }
     /** Receiver upload state reported through /receiver-status. */
     public enum ReceiverUploadState { STREAMING, UPLOADING, UPLOAD_COMPLETE }
+    /**
+     * rule-v1.2.0 observation level of a pattern over the valid-step windows of a session. Ordered so
+     * that the ordinal reflects strength; it never asserts a diagnosis.
+     */
+    public enum ObservationLevel { NOT_OBSERVED, PARTIALLY_OBSERVED, REPEATEDLY_OBSERVED }
 }

@@ -36,7 +36,7 @@ class AnalysisCoordinatorTest {
 
     @Test
     void periodicDispatchRetriesARejectedDurableJobWithoutRestart() {
-        JobKey job = new JobKey(UUID.randomUUID(), "rule-v1.1.0");
+        JobKey job = new JobKey(UUID.randomUUID(), TestAnalysisProperties.ALGORITHM_VERSION);
         AnalysisRunner runner = mock(AnalysisRunner.class);
         AnalysisJobStateService states = mock(AnalysisJobStateService.class);
         when(states.pendingJobs()).thenReturn(List.of(job));
@@ -63,7 +63,7 @@ class AnalysisCoordinatorTest {
 
     @Test
     void doesNotQueueTheSamePendingJobWhileItIsAlreadyInFlight() {
-        JobKey job = new JobKey(UUID.randomUUID(), "rule-v1.1.0");
+        JobKey job = new JobKey(UUID.randomUUID(), TestAnalysisProperties.ALGORITHM_VERSION);
         AnalysisRunner runner = mock(AnalysisRunner.class);
         AnalysisJobStateService states = mock(AnalysisJobStateService.class);
         when(states.pendingJobs()).thenReturn(List.of(job));
@@ -84,8 +84,8 @@ class AnalysisCoordinatorTest {
     void startupRecoveryAndPeriodicPendingScanUseSeparateStateQueries() {
         AnalysisRunner runner = mock(AnalysisRunner.class);
         AnalysisJobStateService states = mock(AnalysisJobStateService.class);
-        JobKey startup = new JobKey(UUID.randomUUID(), "rule-v1.1.0");
-        JobKey pending = new JobKey(UUID.randomUUID(), "rule-v1.1.0");
+        JobKey startup = new JobKey(UUID.randomUUID(), TestAnalysisProperties.ALGORITHM_VERSION);
+        JobKey pending = new JobKey(UUID.randomUUID(), TestAnalysisProperties.ALGORITHM_VERSION);
         when(states.recoverableJobsOnStartup()).thenReturn(List.of(startup));
         when(states.pendingJobs()).thenReturn(List.of(pending));
         AnalysisCoordinator coordinator = new AnalysisCoordinator(runner, states, Runnable::run, properties());

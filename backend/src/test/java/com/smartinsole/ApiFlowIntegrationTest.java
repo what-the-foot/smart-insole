@@ -23,7 +23,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:api_flow;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:h2:mem:api_flow;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
+        // The fixture flow yields one contact window per foot; observe patterns from a single window.
+        "app.analysis.min-observation-windows=1"})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -186,7 +189,7 @@ class ApiFlowIntegrationTest {
         assertThat(result).isNotNull();
         assertThat(result.getResponse().getStatus()).isEqualTo(200);
         JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
-        assertThat(response.path("algorithmVersion").asText()).isEqualTo("rule-v1.1.0");
+        assertThat(response.path("algorithmVersion").asText()).isEqualTo("rule-v1.2.0");
         assertThat(response.path("gaitSummary").path("validStepCount").asInt()).isEqualTo(2);
         assertThat(response.path("pressureDistribution").path("leftMidfootRatio").isNumber()).isTrue();
         assertThat(response.path("pressureDistribution").path("rightForefootRatio").isNumber()).isTrue();
@@ -196,6 +199,21 @@ class ApiFlowIntegrationTest {
         assertThat(response.path("disclaimer").asText()).contains("의료 진단이 아니며");
         String primaryPatternCode = response.path("patterns").path(0).path("code").asText();
         assertThat(primaryPatternCode).isNotBlank();
+        JsonNode summary = response.path("observationSummary");
+        assertThat(summary.isArray()).isTrue();
+        assertThat(summary.size()).isEqualTo(6);
+        java.util.List<String> summaryCodes = new java.util.ArrayList<>();
+        summary.forEach(item -> summaryCodes.add(item.path("code").asText()));
+        assertThat(summaryCodes).containsExactly("MEDIAL_LOAD_TENDENCY", "LATERAL_LOAD_TENDENCY",
+                "LEFT_RIGHT_ASYMMETRY", "LOW_HALLUX_SIGNAL", "FOREFOOT_LOAD_TENDENCY", "REARFOOT_LOAD_TENDENCY");
+        assertThat(summaryCodes).contains(primaryPatternCode);
+        JsonNode primary = response.path("patterns").path(0);
+        assertThat(primary.path("observationLevel").asText()).isIn("PARTIALLY_OBSERVED", "REPEATEDLY_OBSERVED");
+        assertThat(primary.path("windowCount").asInt()).isEqualTo(2);
+        assertThat(primary.path("occurrenceRate").asDouble()).isBetween(0.2, 1.0);
+        response.path("patterns").forEach(pattern -> assertThat(pattern.path("code").asText())
+                .isNotIn("HIGH_MIDFOOT_LOAD", "SHORT_CONTACT_TIME", "LOW_DATA_QUALITY"));
+        assertThat(response.path("pressureDistribution").path("leftSensorSharePct").size()).isEqualTo(8);
 
         mvc.perform(get("/api/v1/measurement-sessions")
                         .header("Authorization", bearer(aliceToken))

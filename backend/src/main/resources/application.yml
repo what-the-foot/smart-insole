@@ -50,7 +50,7 @@ app:
     sample-rate-mismatch-tolerance: 0.30
     retry-after-seconds: 2
   analysis:
-    algorithm-version: rule-v1.1.0
+    algorithm-version: rule-v1.2.0
     defaults-are-functional-test-values: true
     # Fallback ADC scale only; every session snapshots devices.adc_max (4095 for new registrations).
     adc-max-value: 4095
@@ -58,11 +58,17 @@ app:
     # (3.75 x 8 sensors = 30.0) is the proposed value pending unloaded/standing measurements.
     contact-total-threshold: 30.0
     contact-total-threshold-per-sensor: 3.75
+    # rule-v1.2.0 per-window (valid step) thresholds; proposed values without clinical validation.
     asymmetry-threshold-percent: 10.0
     medial-ratio-threshold: 0.60
     lateral-ratio-threshold: 0.60
-    midfoot-ratio-threshold: 0.40
-    short-contact-time-ms: 300.0
+    forefoot-ratio-threshold: 0.60
+    rearfoot-ratio-threshold: 0.55
+    hallux-share-pct-threshold: 5.0
+    # Observation level from the occurrence rate over valid-step windows.
+    partial-observation-rate: 0.20
+    repeated-observation-rate: 0.60
+    min-observation-windows: 4
     poor-quality-score-threshold: 60
     max-attempts: 2
   cors:

@@ -83,12 +83,15 @@ public class AnalysisPersistenceService {
         AnalysisResult result = new AnalysisResult(sessionId, algorithmVersion, computed.qualityScore(),
                 computed.qualityLevel(), computed.missingFrameRate(), computed.cadence(),
                 computed.leftContactTimeMs(), computed.rightContactTimeMs(), computed.symmetryIndex(),
-                computed.validStepCount(), json(computed.distribution()), json(computed.qualityFlags()), now);
+                computed.validStepCount(), json(computed.distribution()), json(computed.qualityFlags()),
+                json(computed.observationSummary()), now);
         results.saveAndFlush(result);
         int order = 0;
+        // Only PARTIALLY/REPEATEDLY observed patterns are stored; NOT_OBSERVED codes live in the summary.
         for (ComputedPattern pattern : computed.patterns()) {
             patterns.save(new AnalysisPattern(result.getId(), pattern.code(), pattern.severity(), pattern.title(),
-                    pattern.message(), pattern.evidence(), order++));
+                    pattern.message(), pattern.evidence(), order++, pattern.observationLevel(),
+                    pattern.occurrenceRate(), pattern.observedCount(), pattern.windowCount()));
         }
         linkRecommendations(result.getId(), computed.recommendationCodes());
         session.analysisCompleted(computed.qualityScore(), now);
