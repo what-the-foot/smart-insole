@@ -90,7 +90,7 @@ try {
                 $PackageManager = Get-Command npm.cmd -ErrorAction SilentlyContinue
                 if ($null -eq $PackageManager) { $PackageManager = Get-Command npm -ErrorAction SilentlyContinue }
                 if ($null -eq $PackageManager) { throw 'npm is required.' }
-                Invoke-Checked 'frontend OpenAPI generation' { & $PackageManager.Source run api:generate }
+                Invoke-Checked 'frontend OpenAPI type check (api:check)' { & $PackageManager.Source run api:check }
                 Invoke-Checked 'frontend lint' { & $PackageManager.Source run lint }
                 Invoke-Checked 'frontend tests' { & $PackageManager.Source run test -- --run }
                 Invoke-Checked 'frontend build' { & $PackageManager.Source run build }
@@ -99,7 +99,7 @@ try {
                 $PackageManager = Get-Command pnpm.cmd -ErrorAction SilentlyContinue
                 if ($null -eq $PackageManager) { $PackageManager = Get-Command pnpm -ErrorAction SilentlyContinue }
                 if ($null -eq $PackageManager) { throw 'pnpm is required.' }
-                Invoke-Checked 'frontend OpenAPI generation' { & $PackageManager.Source run api:generate }
+                Invoke-Checked 'frontend OpenAPI type check (api:check)' { & $PackageManager.Source run api:check }
                 Invoke-Checked 'frontend lint' { & $PackageManager.Source run lint }
                 Invoke-Checked 'frontend tests' { & $PackageManager.Source run test -- --run }
                 Invoke-Checked 'frontend build' { & $PackageManager.Source run build }
@@ -108,7 +108,7 @@ try {
                 $PackageManager = Get-Command yarn.cmd -ErrorAction SilentlyContinue
                 if ($null -eq $PackageManager) { $PackageManager = Get-Command yarn -ErrorAction SilentlyContinue }
                 if ($null -eq $PackageManager) { throw 'yarn is required.' }
-                Invoke-Checked 'frontend OpenAPI generation' { & $PackageManager.Source run api:generate }
+                Invoke-Checked 'frontend OpenAPI type check (api:check)' { & $PackageManager.Source run api:check }
                 Invoke-Checked 'frontend lint' { & $PackageManager.Source run lint }
                 Invoke-Checked 'frontend tests' { & $PackageManager.Source run test --run }
                 Invoke-Checked 'frontend build' { & $PackageManager.Source run build }

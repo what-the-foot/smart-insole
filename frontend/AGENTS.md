@@ -60,6 +60,25 @@ src/
 - Loading/Empty/Error/Unauthorized/Forbidden 처리
 - 계약 변경 시 타입 생성·검증 실행
 
+## 생성 타입 갱신 절차 (FE-7)
+
+`src/api/generated/schema.ts`는 `contracts/openapi.yaml`에서 생성한 파일이며 직접 수정하지 않고
+Git에 커밋한다(`.prettierignore`·ESLint ignore 대상).
+
+1. 계약이 바뀌면 `npm run api:generate`를 실행해 `schema.ts`를 재생성한다.
+2. `src/api/types.ts`의 alias와 exact-key 배열을 같은 PR에서 갱신한다.
+   - `src/features/realtime/realtimeSchema.ts`: `rootKeys`·`footKeys`·`copKeys`·`qualityKeys`·enum 배열
+     (RealtimePressureMessage 1.0)
+   - `src/api/runtimeValidation.ts`: `layoutKeys`·`requiredPointKeys`·`optionalPointKeys`(SensorPoint)
+   - 두 파일의 "추가 필드 거부" 테스트(`realtimeSchema.test.ts`, `runtimeValidation.test.ts`)를
+     새 키 기준으로 함께 고친다. 테스트를 지우거나 느슨하게 만들지 않는다.
+3. `npm run api:check`로 재생성 결과가 커밋된 파일과 같은지 확인한다
+   (`api:generate` 후 `git diff --exit-code src/api/generated/schema.ts`). 이 검사는
+   `scripts/verify-all.ps1` / `verify-all.sh`의 프론트 단계 첫 항목이며 `prebuild`도 같은 생성을
+   실행하므로 빌드 뒤 diff가 남으면 안 된다.
+4. 계약이 약속한 필드가 `openapi.yaml`에 없으면 계약을 따르고 격차를 보고한다. 생성 타입을
+   손으로 고쳐 맞추지 않는다.
+
 ## WebSocket
 
 - STOMP 연결·구독·해제·재연결을 별도 훅/서비스로 관리

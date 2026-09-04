@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "api:generate": "openapi-typescript ../contracts/openapi.yaml -o src/api/generated/schema.ts",
+    "api:check": "npm run api:generate && git diff --exit-code src/api/generated/schema.ts",
     "prebuild": "npm run api:generate",
     "build": "tsc -b && vite build",
     "lint": "eslint . --max-warnings=0",

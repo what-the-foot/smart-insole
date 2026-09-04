@@ -81,19 +81,19 @@ fi
   cd "$FRONTEND_DIR"
   if [ -f package-lock.json ]; then
     command -v npm >/dev/null 2>&1 || { echo "[FAIL] npm is required." >&2; exit 2; }
-    run_step "frontend OpenAPI generation" npm run api:generate
+    run_step "frontend OpenAPI type check (api:check)" npm run api:check
     run_step "frontend lint" npm run lint
     run_step "frontend tests" npm run test -- --run
     run_step "frontend build" npm run build
   elif [ -f pnpm-lock.yaml ]; then
     command -v pnpm >/dev/null 2>&1 || { echo "[FAIL] pnpm is required." >&2; exit 2; }
-    run_step "frontend OpenAPI generation" pnpm run api:generate
+    run_step "frontend OpenAPI type check (api:check)" pnpm run api:check
     run_step "frontend lint" pnpm run lint
     run_step "frontend tests" pnpm run test -- --run
     run_step "frontend build" pnpm run build
   else
     command -v yarn >/dev/null 2>&1 || { echo "[FAIL] yarn is required." >&2; exit 2; }
-    run_step "frontend OpenAPI generation" yarn run api:generate
+    run_step "frontend OpenAPI type check (api:check)" yarn run api:check
     run_step "frontend lint" yarn run lint
     run_step "frontend tests" yarn run test --run
     run_step "frontend build" yarn run build
