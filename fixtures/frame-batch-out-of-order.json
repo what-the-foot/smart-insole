@@ -1,0 +1,391 @@
+{
+  "schemaVersion": "1.0",
+  "receiverId": "RECEIVER-PC-001",
+  "sentAt": "2026-09-02T07:17:10.200Z",
+  "frames": [
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 704,
+      "deviceTimeMs": 1040,
+      "sensorValues": [
+        903,
+        811,
+        387,
+        357,
+        634,
+        602,
+        247,
+        227
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 704,
+      "deviceTimeMs": 1040,
+      "sensorValues": [
+        876,
+        787,
+        375,
+        346,
+        615,
+        584,
+        239,
+        220
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 705,
+      "deviceTimeMs": 1050,
+      "sensorValues": [
+        921,
+        827,
+        402,
+        371,
+        747,
+        709,
+        330,
+        303
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 705,
+      "deviceTimeMs": 1050,
+      "sensorValues": [
+        893,
+        802,
+        390,
+        359,
+        725,
+        688,
+        320,
+        294
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 706,
+      "deviceTimeMs": 1060,
+      "sensorValues": [
+        861,
+        773,
+        459,
+        423,
+        807,
+        766,
+        393,
+        361
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 706,
+      "deviceTimeMs": 1060,
+      "sensorValues": [
+        836,
+        750,
+        445,
+        410,
+        783,
+        743,
+        381,
+        350
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 700,
+      "deviceTimeMs": 1000,
+      "sensorValues": [
+        30,
+        25,
+        20,
+        20,
+        25,
+        25,
+        15,
+        15
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 700,
+      "deviceTimeMs": 1000,
+      "sensorValues": [
+        29,
+        24,
+        19,
+        19,
+        24,
+        24,
+        15,
+        15
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 701,
+      "deviceTimeMs": 1010,
+      "sensorValues": [
+        351,
+        314,
+        172,
+        159,
+        162,
+        155,
+        54,
+        51
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 701,
+      "deviceTimeMs": 1010,
+      "sensorValues": [
+        341,
+        305,
+        167,
+        155,
+        158,
+        151,
+        53,
+        50
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 702,
+      "deviceTimeMs": 1020,
+      "sensorValues": [
+        614,
+        551,
+        315,
+        290,
+        321,
+        306,
+        91,
+        84
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 702,
+      "deviceTimeMs": 1020,
+      "sensorValues": [
+        595,
+        534,
+        305,
+        282,
+        312,
+        297,
+        88,
+        82
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 703,
+      "deviceTimeMs": 1030,
+      "sensorValues": [
+        801,
+        719,
+        382,
+        353,
+        485,
+        461,
+        159,
+        147
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 703,
+      "deviceTimeMs": 1030,
+      "sensorValues": [
+        777,
+        697,
+        371,
+        342,
+        471,
+        447,
+        155,
+        143
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 709,
+      "deviceTimeMs": 1090,
+      "sensorValues": [
+        387,
+        346,
+        292,
+        269,
+        550,
+        523,
+        325,
+        298
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 709,
+      "deviceTimeMs": 1090,
+      "sensorValues": [
+        375,
+        336,
+        283,
+        261,
+        534,
+        507,
+        315,
+        289
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 710,
+      "deviceTimeMs": 1100,
+      "sensorValues": [
+        199,
+        177,
+        139,
+        129,
+        316,
+        300,
+        194,
+        179
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 710,
+      "deviceTimeMs": 1100,
+      "sensorValues": [
+        193,
+        172,
+        135,
+        125,
+        306,
+        291,
+        188,
+        174
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 711,
+      "deviceTimeMs": 1110,
+      "sensorValues": [
+        30,
+        25,
+        20,
+        20,
+        25,
+        25,
+        15,
+        15
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 711,
+      "deviceTimeMs": 1110,
+      "sensorValues": [
+        29,
+        24,
+        19,
+        19,
+        24,
+        24,
+        15,
+        15
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 707,
+      "deviceTimeMs": 1070,
+      "sensorValues": [
+        740,
+        664,
+        496,
+        457,
+        799,
+        758,
+        420,
+        385
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 707,
+      "deviceTimeMs": 1070,
+      "sensorValues": [
+        717,
+        644,
+        481,
+        443,
+        775,
+        735,
+        408,
+        374
+      ]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 708,
+      "deviceTimeMs": 1080,
+      "sensorValues": [
+        574,
+        515,
+        437,
+        403,
+        714,
+        677,
+        400,
+        367
+      ]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 708,
+      "deviceTimeMs": 1080,
+      "sensorValues": [
+        557,
+        499,
+        424,
+        390,
+        692,
+        657,
+        388,
+        356
+      ]
+    }
+  ]
+}

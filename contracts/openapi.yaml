@@ -1,0 +1,1504 @@
+openapi: 3.0.3
+info:
+  title: Smart Insole API
+  version: 1.0.0
+  description: 스마트 인솔 MVP의 인증, 기기, 측정 세션, 센서 수신, 실시간 snapshot, 분석 결과 계약.
+servers:
+- url: http://localhost:8080
+  description: Local backend
+tags:
+- name: Auth
+- name: Devices
+- name: SensorLayouts
+- name: Measurements
+- name: Receiver
+paths:
+  /api/v1/auth/signup:
+    post:
+      tags:
+      - Auth
+      summary: 회원가입
+      operationId: signup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '201':
+          description: 가입 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/auth/signin:
+    post:
+      tags:
+      - Auth
+      summary: 로그인
+      operationId: signin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SigninRequest'
+      responses:
+        '200':
+          description: 로그인 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/devices:
+    get:
+      tags:
+      - Devices
+      summary: 내 기기 목록
+      operationId: listMyDevices
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: 기기 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+      - Devices
+      summary: 기기 등록
+      operationId: registerDevice
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDeviceRequest'
+      responses:
+        '201':
+          description: 등록 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /api/v1/sensor-layouts/{version}:
+    get:
+      tags:
+      - SensorLayouts
+      summary: 센서 배치 조회
+      operationId: getSensorLayout
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: 센서 배치
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorLayoutResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/measurement-sessions:
+    post:
+      tags:
+      - Measurements
+      summary: 측정 세션 생성
+      operationId: createMeasurementSession
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMeasurementSessionRequest'
+      responses:
+        '201':
+          description: 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementSessionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    get:
+      tags:
+      - Measurements
+      summary: 내 측정 기록
+      operationId: listMeasurementSessions
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: size
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/MeasurementStatus'
+      - name: from
+        in: query
+        description: Include sessions created at or after this UTC instant.
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        description: Include sessions created at or before this UTC instant.
+        schema:
+          type: string
+          format: date-time
+      - name: minQualityScore
+        in: query
+        description: Include completed sessions whose data quality score is at least this value.
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 100
+      - name: patternCode
+        in: query
+        description: Include sessions containing this observed pattern code.
+        schema:
+          type: string
+          maxLength: 100
+      responses:
+        '200':
+          description: 목록
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementSessionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/measurement-sessions/{sessionId}:
+    get:
+      tags:
+      - Measurements
+      summary: 측정 상세
+      operationId: getMeasurementSession
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: 상세
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementSessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/measurement-sessions/{sessionId}/start:
+    post:
+      tags:
+      - Measurements
+      summary: 측정 시작
+      operationId: startMeasurementSession
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: 처리 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementSessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/measurement-sessions/{sessionId}/complete:
+    post:
+      tags:
+      - Measurements
+      summary: 측정 종료 및 분석 예약
+      operationId: completeMeasurementSession
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: 처리 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementSessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/measurement-sessions/{sessionId}/cancel:
+    post:
+      tags:
+      - Measurements
+      summary: 측정 취소
+      operationId: cancelMeasurementSession
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: 처리 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementSessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/measurement-sessions/{sessionId}/realtime-snapshot:
+    get:
+      tags:
+      - Measurements
+      summary: 최신 실시간 상태
+      operationId: getRealtimeSnapshot
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RealtimePressureMessage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/measurement-sessions/{sessionId}/result:
+    get:
+      tags:
+      - Measurements
+      summary: 분석 결과
+      operationId: getMeasurementResult
+      security:
+      - bearerAuth: []
+      parameters:
+      - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: 완료 결과
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResultResponse'
+        '202':
+          description: 분석 중
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisPendingResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/recommendations/{code}:
+    get:
+      tags:
+      - Recommendations
+      summary: 추천 운동 가이드 상세
+      operationId: getRecommendation
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 100
+      responses:
+        '200':
+          description: 운동 가이드
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /internal/v1/measurement-sessions/{sessionId}/frame-batches:
+    post:
+      tags:
+      - Receiver
+      summary: 센서 프레임 배치 업로드
+      operationId: ingestFrameBatch
+      security:
+      - receiverApiKey: []
+      parameters:
+      - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FrameBatchRequest'
+      responses:
+        '200':
+          description: 처리 결과
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrameBatchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          description: 배치 크기 초과
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /internal/v1/devices/{deviceId}/heartbeat:
+    post:
+      tags:
+      - Receiver
+      summary: 기기 상태 갱신
+      operationId: heartbeatDevice
+      security:
+      - receiverApiKey: []
+      parameters:
+      - name: deviceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceHeartbeatRequest'
+      responses:
+        '204':
+          description: 반영 성공
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    receiverApiKey:
+      type: apiKey
+      in: header
+      name: X-Receiver-Key
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: 요청 형식 오류
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: 인증 실패
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Forbidden:
+      description: 접근 권한 없음
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: 자원 없음
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: 현재 상태와 요청이 충돌함
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    UnprocessableEntity:
+      description: 의미 검증 실패
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  schemas:
+    FootSide:
+      type: string
+      enum:
+      - LEFT
+      - RIGHT
+    MeasurementStatus:
+      type: string
+      enum:
+      - CREATED
+      - MEASURING
+      - PROCESSING
+      - COMPLETED
+      - CANCELLED
+      - FAILED
+    SourceType:
+      type: string
+      enum:
+      - DEVICE
+      - SIMULATED
+    DeviceStatus:
+      type: string
+      enum:
+      - ACTIVE
+      - INACTIVE
+      - DISCONNECTED
+      - CALIBRATION_REQUIRED
+    QualityLevel:
+      type: string
+      enum:
+      - GOOD
+      - ACCEPTABLE
+      - POOR
+    PatternSeverity:
+      type: string
+      enum:
+      - INFO
+      - CAUTION
+      - RECHECK
+    ContactState:
+      type: string
+      enum:
+      - NO_CONTACT
+      - CONTACT
+      - UNKNOWN
+    ApiError:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - message
+      - details
+      - traceId
+      - timestamp
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    SignupRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - email
+      - password
+      - name
+      properties:
+        email:
+          type: string
+          format: email
+          pattern: '.*\S.*'
+          maxLength: 255
+        password:
+          type: string
+          minLength: 8
+          pattern: '.*\S.*'
+          maxLength: 100
+          description: Must be at most 72 bytes when encoded as UTF-8.
+          x-maxUtf8Bytes: 72
+        name:
+          type: string
+          minLength: 1
+          pattern: '.*\S.*'
+          maxLength: 50
+    SigninRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - email
+      - password
+      properties:
+        email:
+          type: string
+          format: email
+          pattern: '.*\S.*'
+          maxLength: 255
+        password:
+          type: string
+          minLength: 1
+          pattern: '.*\S.*'
+          maxLength: 100
+          description: Must be at most 72 bytes when encoded as UTF-8.
+          x-maxUtf8Bytes: 72
+    UserSummary:
+      type: object
+      additionalProperties: false
+      required:
+      - userId
+      - email
+      - name
+      - createdAt
+      properties:
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    AuthTokenResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - tokenType
+      - accessToken
+      - expiresInSeconds
+      - user
+      properties:
+        tokenType:
+          type: string
+          enum:
+          - Bearer
+        accessToken:
+          type: string
+        expiresInSeconds:
+          type: integer
+          minimum: 1
+        user:
+          $ref: '#/components/schemas/UserSummary'
+    RegisterDeviceRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - serialNumber
+      - displayName
+      - footSide
+      - sensorCount
+      - sensorLayoutVersion
+      - firmwareVersion
+      properties:
+        serialNumber:
+          type: string
+          minLength: 1
+          pattern: '.*\S.*'
+          maxLength: 100
+        displayName:
+          type: string
+          minLength: 1
+          pattern: '.*\S.*'
+          maxLength: 100
+        footSide:
+          $ref: '#/components/schemas/FootSide'
+        sensorCount:
+          type: integer
+          enum:
+          - 6
+          - 8
+        sensorLayoutVersion:
+          type: string
+          minLength: 1
+          pattern: '.*\S.*'
+          maxLength: 50
+        firmwareVersion:
+          type: string
+          minLength: 1
+          pattern: '.*\S.*'
+          maxLength: 50
+    DeviceResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - deviceId
+      - serialNumber
+      - displayName
+      - footSide
+      - sensorCount
+      - sensorLayoutVersion
+      - firmwareVersion
+      - activeCalibrationVersion
+      - status
+      - registeredAt
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+        serialNumber:
+          type: string
+        displayName:
+          type: string
+        footSide:
+          $ref: '#/components/schemas/FootSide'
+        sensorCount:
+          type: integer
+          enum:
+          - 6
+          - 8
+        sensorLayoutVersion:
+          type: string
+        firmwareVersion:
+          type: string
+        activeCalibrationVersion:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/DeviceStatus'
+        lastSeenAt:
+          type: string
+          format: date-time
+          nullable: true
+        registeredAt:
+          type: string
+          format: date-time
+    SensorPoint:
+      type: object
+      additionalProperties: false
+      required:
+      - index
+      - x
+      - y
+      - region
+      - medialLateral
+      properties:
+        index:
+          type: integer
+          minimum: 0
+          maximum: 7
+        x:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Foot-local horizontal coordinate from medial (0) to lateral (1). The UI mirrors LEFT-foot coordinates for a bilateral wearer-facing view.
+        y:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Foot-local vertical coordinate from toe (0) to heel (1).
+        region:
+          type: string
+          enum:
+          - HEEL
+          - MIDFOOT
+          - FOREFOOT
+          - TOE
+        medialLateral:
+          type: string
+          enum:
+          - MEDIAL
+          - CENTER
+          - LATERAL
+    SensorLayoutResponse:
+      type: object
+      additionalProperties: false
+      oneOf:
+      - properties:
+          sensorCount:
+            enum:
+            - 6
+          points:
+            minItems: 6
+            maxItems: 6
+      - properties:
+          sensorCount:
+            enum:
+            - 8
+          points:
+            minItems: 8
+            maxItems: 8
+      required:
+      - version
+      - sensorCount
+      - points
+      properties:
+        version:
+          type: string
+        sensorCount:
+          type: integer
+          enum:
+          - 6
+          - 8
+        points:
+          type: array
+          description: Ordered sensor points. Length must equal sensorCount.
+          oneOf:
+          - minItems: 6
+            maxItems: 6
+          - minItems: 8
+            maxItems: 8
+          items:
+            $ref: '#/components/schemas/SensorPoint'
+    CreateMeasurementSessionRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - leftDeviceId
+      - rightDeviceId
+      - sampleRateHz
+      properties:
+        leftDeviceId:
+          type: string
+          format: uuid
+        rightDeviceId:
+          type: string
+          format: uuid
+        sampleRateHz:
+          type: integer
+          enum:
+          - 100
+        memo:
+          type: string
+          maxLength: 500
+          nullable: true
+    MeasurementSessionResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - sessionId
+      - status
+      - leftDeviceId
+      - rightDeviceId
+      - sampleRateHz
+      - sourceType
+      - createdAt
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/MeasurementStatus'
+        leftDeviceId:
+          type: string
+          format: uuid
+        rightDeviceId:
+          type: string
+          format: uuid
+        sampleRateHz:
+          type: integer
+        sourceType:
+          $ref: '#/components/schemas/SourceType'
+        memo:
+          type: string
+          nullable: true
+        dataQualityScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    MeasurementSessionPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+      - totalPages
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MeasurementHistoryItem'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+        totalElements:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    MeasurementHistoryItem:
+      type: object
+      additionalProperties: false
+      required:
+      - sessionId
+      - status
+      - leftDeviceId
+      - rightDeviceId
+      - sampleRateHz
+      - sourceType
+      - createdAt
+      - primaryPatternCode
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/MeasurementStatus'
+        leftDeviceId:
+          type: string
+          format: uuid
+        rightDeviceId:
+          type: string
+          format: uuid
+        sampleRateHz:
+          type: integer
+        sourceType:
+          $ref: '#/components/schemas/SourceType'
+        memo:
+          type: string
+          nullable: true
+        dataQualityScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        primaryPatternCode:
+          type: string
+          nullable: true
+    PressureFrameInput:
+      type: object
+      additionalProperties: false
+      required:
+      - deviceId
+      - footSide
+      - sequence
+      - deviceTimeMs
+      - sensorValues
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+        footSide:
+          $ref: '#/components/schemas/FootSide'
+        sequence:
+          type: integer
+          format: int64
+          minimum: 0
+        deviceTimeMs:
+          type: integer
+          format: int64
+          minimum: 0
+        sensorValues:
+          type: array
+          oneOf:
+          - minItems: 6
+            maxItems: 6
+          - minItems: 8
+            maxItems: 8
+          items:
+            type: integer
+            minimum: 0
+            maximum: 65535
+    FrameBatchRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - schemaVersion
+      - receiverId
+      - sentAt
+      - frames
+      properties:
+        schemaVersion:
+          type: string
+          enum:
+          - '1.0'
+        receiverId:
+          type: string
+          minLength: 1
+          pattern: '.*\S.*'
+          maxLength: 100
+        sentAt:
+          type: string
+          format: date-time
+        frames:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/PressureFrameInput'
+    FrameRejection:
+      type: object
+      additionalProperties: false
+      required:
+      - frameIndex
+      - code
+      - message
+      properties:
+        frameIndex:
+          type: integer
+          minimum: 0
+        code:
+          type: string
+        message:
+          type: string
+    FrameBatchResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - acceptedCount
+      - duplicateCount
+      - rejectedCount
+      - rejections
+      - lastSequenceByDevice
+      - receivedAt
+      properties:
+        acceptedCount:
+          type: integer
+          minimum: 0
+        duplicateCount:
+          type: integer
+          minimum: 0
+        rejectedCount:
+          type: integer
+          minimum: 0
+        rejections:
+          type: array
+          items:
+            $ref: '#/components/schemas/FrameRejection'
+        lastSequenceByDevice:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+            minimum: 0
+        receivedAt:
+          type: string
+          format: date-time
+    DeviceHeartbeatRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - receiverId
+      - observedAt
+      - connected
+      properties:
+        receiverId:
+          type: string
+          minLength: 1
+          pattern: '.*\S.*'
+        observedAt:
+          type: string
+          format: date-time
+        connected:
+          type: boolean
+        batteryPercent:
+          type: number
+          minimum: 0
+          maximum: 100
+          nullable: true
+        rssi:
+          type: integer
+          nullable: true
+    CopPoint:
+      type: object
+      additionalProperties: false
+      required:
+      - x
+      - y
+      properties:
+        x:
+          type: number
+          minimum: 0
+          maximum: 1
+        y:
+          type: number
+          minimum: 0
+          maximum: 1
+    FootRealtimeData:
+      type: object
+      nullable: true
+      additionalProperties: false
+      required:
+      - connected
+      - lastSequence
+      - deviceTimeMs
+      - sensorValues
+      - totalPressure
+      - cop
+      - contactState
+      - lastReceivedAt
+      properties:
+        connected:
+          type: boolean
+        lastSequence:
+          type: integer
+          format: int64
+          minimum: 0
+        deviceTimeMs:
+          type: integer
+          format: int64
+          minimum: 0
+        sensorValues:
+          type: array
+          oneOf:
+          - minItems: 6
+            maxItems: 6
+          - minItems: 8
+            maxItems: 8
+          items:
+            type: number
+            minimum: 0
+            maximum: 100
+        totalPressure:
+          type: number
+          minimum: 0
+        cop:
+          allOf:
+          - $ref: '#/components/schemas/CopPoint'
+          nullable: true
+        contactState:
+          $ref: '#/components/schemas/ContactState'
+        lastReceivedAt:
+          type: string
+          format: date-time
+    RealtimeQuality:
+      type: object
+      additionalProperties: false
+      required:
+      - score
+      - level
+      - flags
+      properties:
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        level:
+          $ref: '#/components/schemas/QualityLevel'
+        flags:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+    RealtimePressureMessage:
+      type: object
+      additionalProperties: false
+      required:
+      - schemaVersion
+      - sessionId
+      - serverTime
+      - elapsedTimeMs
+      - status
+      - left
+      - right
+      - quality
+      properties:
+        schemaVersion:
+          type: string
+          enum:
+          - '1.0'
+        sessionId:
+          type: string
+          format: uuid
+        serverTime:
+          type: string
+          format: date-time
+        elapsedTimeMs:
+          type: integer
+          minimum: 0
+        status:
+          type: string
+          enum:
+          - MEASURING
+        left:
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/FootRealtimeData'
+        right:
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/FootRealtimeData'
+        quality:
+          $ref: '#/components/schemas/RealtimeQuality'
+    AnalysisPendingResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - sessionId
+      - status
+      - message
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - PROCESSING
+        message:
+          type: string
+    DataQualityResult:
+      type: object
+      additionalProperties: false
+      required:
+      - score
+      - level
+      - missingFrameRate
+      - flags
+      properties:
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        level:
+          $ref: '#/components/schemas/QualityLevel'
+        missingFrameRate:
+          type: number
+          minimum: 0
+          maximum: 1
+        flags:
+          type: array
+          items:
+            type: string
+    GaitSummary:
+      type: object
+      additionalProperties: false
+      required:
+      - validStepCount
+      - cadence
+      - leftContactTimeMs
+      - rightContactTimeMs
+      - symmetryIndex
+      properties:
+        validStepCount:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: Number of valid contact events used by the analysis; null for legacy results.
+        cadence:
+          type: number
+          minimum: 0
+        leftContactTimeMs:
+          type: number
+          minimum: 0
+        rightContactTimeMs:
+          type: number
+          minimum: 0
+        symmetryIndex:
+          type: number
+          minimum: 0
+    PressureDistribution:
+      type: object
+      additionalProperties: false
+      required:
+      - leftMedialRatio
+      - leftLateralRatio
+      - rightMedialRatio
+      - rightLateralRatio
+      - leftHeelRatio
+      - rightHeelRatio
+      - leftMidfootRatio
+      - rightMidfootRatio
+      - leftForefootRatio
+      - rightForefootRatio
+      - leftPeakPressure
+      - rightPeakPressure
+      - leftMeanCoP
+      - rightMeanCoP
+      properties:
+        leftMedialRatio:
+          type: number
+          minimum: 0
+          maximum: 1
+        leftLateralRatio:
+          type: number
+          minimum: 0
+          maximum: 1
+        rightMedialRatio:
+          type: number
+          minimum: 0
+          maximum: 1
+        rightLateralRatio:
+          type: number
+          minimum: 0
+          maximum: 1
+        leftHeelRatio:
+          type: number
+          minimum: 0
+          maximum: 1
+        rightHeelRatio:
+          type: number
+          minimum: 0
+          maximum: 1
+        leftMidfootRatio:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 1
+        rightMidfootRatio:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 1
+        leftForefootRatio:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 1
+          description: Combined FOREFOOT and TOE pressure ratio for the left foot.
+        rightForefootRatio:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 1
+          description: Combined FOREFOOT and TOE pressure ratio for the right foot.
+        leftPeakPressure:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 100
+          description: Maximum normalized left sensor value observed during the session.
+        rightPeakPressure:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 100
+          description: Maximum normalized right sensor value observed during the session.
+        leftMeanCoP:
+          nullable: true
+          description: Pressure-weighted mean left center of pressure, or null when unavailable.
+          allOf:
+          - $ref: '#/components/schemas/CopPoint'
+        rightMeanCoP:
+          nullable: true
+          description: Pressure-weighted mean right center of pressure, or null when unavailable.
+          allOf:
+          - $ref: '#/components/schemas/CopPoint'
+    PatternResult:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - severity
+      - title
+      - message
+      - evidence
+      properties:
+        code:
+          type: string
+        severity:
+          $ref: '#/components/schemas/PatternSeverity'
+        title:
+          type: string
+        message:
+          type: string
+        evidence:
+          type: string
+    RecommendationSummary:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - title
+      - summary
+      - durationMinutes
+      properties:
+        code:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        durationMinutes:
+          type: integer
+          minimum: 1
+    RecommendationDetailResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - title
+      - purpose
+      - instructions
+      - durationMinutes
+      - cautionText
+      - relatedPatternCodes
+      properties:
+        code:
+          type: string
+        title:
+          type: string
+        purpose:
+          type: string
+        instructions:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        durationMinutes:
+          type: integer
+          minimum: 1
+        cautionText:
+          type: string
+        relatedPatternCodes:
+          type: array
+          items:
+            type: string
+    AnalysisResultResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - sessionId
+      - status
+      - algorithmVersion
+      - dataQuality
+      - gaitSummary
+      - pressureDistribution
+      - patterns
+      - recommendations
+      - disclaimer
+      - createdAt
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - COMPLETED
+        algorithmVersion:
+          type: string
+        dataQuality:
+          $ref: '#/components/schemas/DataQualityResult'
+        gaitSummary:
+          $ref: '#/components/schemas/GaitSummary'
+        pressureDistribution:
+          $ref: '#/components/schemas/PressureDistribution'
+        patterns:
+          type: array
+          items:
+            $ref: '#/components/schemas/PatternResult'
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationSummary'
+        disclaimer:
+          type: string
+        createdAt:
+          type: string
+          format: date-time

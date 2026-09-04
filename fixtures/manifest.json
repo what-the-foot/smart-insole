@@ -1,0 +1,92 @@
+{
+  "fixtureVersion": "1.0",
+  "notice": "모든 값은 기능 테스트용 합성 데이터이며 임상적 의미가 없습니다.",
+  "sessionIdExample": "5803f871-9fca-4a7f-a2c7-9b567a92a6cf",
+  "devices": {
+    "left": "b4b96290-ad73-42d9-ae21-1446f1258861",
+    "right": "64eb539f-4b48-44f6-bb30-d26861463ca6"
+  },
+  "cases": [
+    {
+      "file": "frame-batch-normal.json",
+      "purpose": "정상적인 양발 batch 수신 경로",
+      "expected": [
+        "요청 구조 통과",
+        "중복 없음",
+        "양발 snapshot 가능"
+      ]
+    },
+    {
+      "file": "frame-batch-left-asymmetry.json",
+      "purpose": "왼발 상대 압력 증가 기능 검증",
+      "expected": [
+        "왼발 총합이 상대적으로 큼",
+        "분석 threshold는 구현 설정에 따름"
+      ]
+    },
+    {
+      "file": "frame-batch-duplicate.json",
+      "purpose": "동일 device/sequence 재전송",
+      "expected": [
+        "중복 집계",
+        "고유 행 수 불변"
+      ]
+    },
+    {
+      "file": "frame-batch-sequence-gap.json",
+      "purpose": "양발 sequence 누락",
+      "expected": [
+        "gap 감지",
+        "품질 flag"
+      ]
+    },
+    {
+      "file": "frame-batch-sensor-stuck.json",
+      "purpose": "왼발 한 센서가 고정 고값 4095에 머무는 입력",
+      "expected": [
+        "stuck 감지",
+        "4095를 계약상 ADC 최대값으로 가정하지 않음"
+      ]
+    },
+    {
+      "file": "frame-batch-right-disconnected.json",
+      "purpose": "왼발만 도착",
+      "expected": [
+        "왼발 처리 유지",
+        "오른발 미수신 품질 반영"
+      ]
+    },
+    {
+      "file": "frame-batch-out-of-order.json",
+      "purpose": "도착 배열 순서 역전",
+      "expected": [
+        "저장은 유효",
+        "분석은 deviceTimeMs/sequence 정렬"
+      ]
+    },
+    {
+      "file": "frame-batch-six-sensor.json",
+      "purpose": "양발 6센서 기기 수신 경로",
+      "expected": [
+        "요청 구조 통과",
+        "모든 sensorValues 길이 6",
+        "양발 snapshot의 센서 수 6"
+      ]
+    },
+    {
+      "file": "realtime-bilateral.json",
+      "purpose": "양발 실시간 schema 예시",
+      "expected": [
+        "JSON Schema 통과"
+      ]
+    },
+    {
+      "file": "realtime-right-disconnected.json",
+      "purpose": "오른발 null 실시간 schema 예시",
+      "expected": [
+        "JSON Schema 통과",
+        "경고 UI"
+      ]
+    }
+  ]
+}

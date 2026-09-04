@@ -1,0 +1,32 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# IDE and operating-system files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Backend build output
+backend/.gradle/
+backend/build/
+backend/out/
+
+# Frontend dependencies and output
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/.vite/
+frontend/playwright-report/
+frontend/test-results/
+
+# Runtime files
+*.log
+logs/
+tmp/
+__pycache__/
+*.py[cod]
+.tooling/

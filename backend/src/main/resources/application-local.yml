@@ -1,0 +1,13 @@
+spring:
+  config:
+    import: optional:file:../.env[.properties],optional:file:.env[.properties]
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/smart_insole?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&rewriteBatchedStatements=true}
+    username: ${DB_USERNAME:smart_insole}
+    password: ${DB_PASSWORD:smart_insole_local_only}
+
+app:
+  auth:
+    jwt-secret: ${JWT_SECRET:local-development-key-change-before-use-32bytes}
+  receiver:
+    api-key: ${RECEIVER_API_KEY:local-receiver-key-change-before-use}

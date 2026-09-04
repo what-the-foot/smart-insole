@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://smart-insole.local/contracts/realtime-message.schema.json",
+  "title": "RealtimePressureMessage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sessionId",
+    "serverTime",
+    "elapsedTimeMs",
+    "status",
+    "left",
+    "right",
+    "quality"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "sessionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "serverTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "elapsedTimeMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "status": {
+      "type": "string",
+      "const": "MEASURING"
+    },
+    "left": {
+      "$ref": "#/$defs/foot"
+    },
+    "right": {
+      "$ref": "#/$defs/foot"
+    },
+    "quality": {
+      "$ref": "#/$defs/quality"
+    }
+  },
+  "$defs": {
+    "foot": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "connected",
+            "lastSequence",
+            "deviceTimeMs",
+            "sensorValues",
+            "totalPressure",
+            "cop",
+            "contactState",
+            "lastReceivedAt"
+          ],
+          "properties": {
+            "connected": {
+              "type": "boolean"
+            },
+            "lastSequence": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "deviceTimeMs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sensorValues": {
+              "type": "array",
+              "oneOf": [
+                {
+                  "minItems": 6,
+                  "maxItems": 6
+                },
+                {
+                  "minItems": 8,
+                  "maxItems": 8
+                }
+              ],
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "totalPressure": {
+              "type": "number",
+              "minimum": 0
+            },
+            "cop": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "properties": {
+                    "x": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "y": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  }
+                }
+              ]
+            },
+            "contactState": {
+              "type": "string",
+              "enum": [
+                "NO_CONTACT",
+                "CONTACT",
+                "UNKNOWN"
+              ]
+            },
+            "lastReceivedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      ]
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "score",
+        "level",
+        "flags"
+      ],
+      "properties": {
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "GOOD",
+            "ACCEPTABLE",
+            "POOR"
+          ]
+        },
+        "flags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

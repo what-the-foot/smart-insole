@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:smart_insole;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+app:
+  analysis:
+    periodic-dispatch-enabled: false
+  realtime:
+    disconnect-scan-enabled: false
+  auth:
+    jwt-secret: test-only-secret-key-with-at-least-thirty-two-bytes
+  receiver:
+    api-key: test-receiver-key

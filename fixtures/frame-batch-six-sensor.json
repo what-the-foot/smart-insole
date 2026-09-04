@@ -1,0 +1,147 @@
+{
+  "schemaVersion": "1.0",
+  "receiverId": "RECEIVER-PC-001",
+  "sentAt": "2026-09-02T07:18:10.200Z",
+  "frames": [
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 800,
+      "deviceTimeMs": 1000,
+      "sensorValues": [20, 25, 30, 35, 28, 22]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 800,
+      "deviceTimeMs": 1000,
+      "sensorValues": [18, 23, 28, 33, 26, 20]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 801,
+      "deviceTimeMs": 1010,
+      "sensorValues": [90, 150, 220, 310, 240, 130]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 801,
+      "deviceTimeMs": 1010,
+      "sensorValues": [85, 145, 210, 300, 230, 125]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 802,
+      "deviceTimeMs": 1020,
+      "sensorValues": [170, 270, 390, 510, 420, 250]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 802,
+      "deviceTimeMs": 1020,
+      "sensorValues": [160, 260, 375, 495, 405, 240]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 803,
+      "deviceTimeMs": 1030,
+      "sensorValues": [250, 390, 560, 720, 610, 360]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 803,
+      "deviceTimeMs": 1030,
+      "sensorValues": [240, 375, 540, 695, 590, 345]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 804,
+      "deviceTimeMs": 1040,
+      "sensorValues": [310, 470, 650, 840, 720, 430]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 804,
+      "deviceTimeMs": 1040,
+      "sensorValues": [295, 450, 625, 810, 695, 415]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 805,
+      "deviceTimeMs": 1050,
+      "sensorValues": [335, 505, 700, 900, 775, 465]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 805,
+      "deviceTimeMs": 1050,
+      "sensorValues": [320, 485, 675, 870, 750, 450]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 806,
+      "deviceTimeMs": 1060,
+      "sensorValues": [300, 455, 640, 820, 700, 420]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 806,
+      "deviceTimeMs": 1060,
+      "sensorValues": [285, 440, 615, 795, 680, 405]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 807,
+      "deviceTimeMs": 1070,
+      "sensorValues": [230, 355, 510, 670, 565, 335]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 807,
+      "deviceTimeMs": 1070,
+      "sensorValues": [220, 340, 490, 645, 545, 320]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 808,
+      "deviceTimeMs": 1080,
+      "sensorValues": [135, 220, 330, 445, 365, 210]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 808,
+      "deviceTimeMs": 1080,
+      "sensorValues": [128, 210, 315, 430, 350, 200]
+    },
+    {
+      "deviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "footSide": "LEFT",
+      "sequence": 809,
+      "deviceTimeMs": 1090,
+      "sensorValues": [35, 45, 55, 65, 52, 38]
+    },
+    {
+      "deviceId": "64eb539f-4b48-44f6-bb30-d26861463ca6",
+      "footSide": "RIGHT",
+      "sequence": 809,
+      "deviceTimeMs": 1090,
+      "sensorValues": [32, 42, 52, 62, 49, 35]
+    }
+  ]
+}
