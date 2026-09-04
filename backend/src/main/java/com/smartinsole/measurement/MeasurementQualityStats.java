@@ -78,34 +78,74 @@ public class MeasurementQualityStats {
         return stats;
     }
 
-    public void apply(int accepted, int duplicates, int rejected, long newGaps,
-                      Long maxLeft, Long maxRight, Long lastLeftDeviceTime, Long lastRightDeviceTime,
-                      Set<String> newFlags,
-                      ObjectMapper objectMapper, Instant now) {
+    /**
+     * Per-side summary of one accepted batch. {@code firstSequence} is the lowest accepted sequence of
+     * the batch (late frames may lower the stored first sequence); {@code lastSequence} and
+     * {@code lastDeviceTimeMs} describe the newest forward frame and are null when the batch only
+     * contained late frames.
+     */
+    public record SideCursor(long firstSequence, Long lastSequence, Long lastDeviceTimeMs) {
+        public SideCursor(long firstSequence, long lastSequence, long lastDeviceTimeMs) {
+            this(firstSequence, Long.valueOf(lastSequence), Long.valueOf(lastDeviceTimeMs));
+        }
+    }
+
+    /**
+     * Applies one accepted batch. Gap accounting is O(1): every accepted (device, sequence) pair is
+     * unique and lies within [first, last] of its side, so the missing count is
+     * sum(last - first + 1) - received without scanning stored rows. A late frame that closes a gap
+     * simply raises received; a frame older than the first one widens the span.
+     */
+    public void apply(int accepted, int duplicates, int rejected, SideCursor left, SideCursor right,
+                      Set<String> newFlags, ObjectMapper objectMapper, Instant now) {
         receivedFrameCount += accepted;
         duplicateFrameCount += duplicates;
         rejectedFrameCount += rejected;
-        sequenceGapCount = newGaps;
-        if (maxLeft != null && (lastLeftSequence == null || maxLeft > lastLeftSequence)) {
-            lastLeftSequence = maxLeft;
+        if (left != null) {
+            firstLeftSequence = lower(firstLeftSequence, left.firstSequence());
+            if (left.lastSequence() != null && (lastLeftSequence == null || left.lastSequence() > lastLeftSequence)) {
+                lastLeftSequence = left.lastSequence();
+                lastLeftDeviceTimeMs = left.lastDeviceTimeMs();
+            }
         }
-        if (maxRight != null && (lastRightSequence == null || maxRight > lastRightSequence)) {
-            lastRightSequence = maxRight;
+        if (right != null) {
+            firstRightSequence = lower(firstRightSequence, right.firstSequence());
+            if (right.lastSequence() != null
+                    && (lastRightSequence == null || right.lastSequence() > lastRightSequence)) {
+                lastRightSequence = right.lastSequence();
+                lastRightDeviceTimeMs = right.lastDeviceTimeMs();
+            }
         }
-        if (lastLeftDeviceTime != null) {
-            lastLeftDeviceTimeMs = lastLeftDeviceTime;
-        }
-        if (lastRightDeviceTime != null) {
-            lastRightDeviceTimeMs = lastRightDeviceTime;
-        }
+        sequenceGapCount = Math.max(0, expectedSpan() - receivedFrameCount);
         expectedFrameCount = receivedFrameCount + sequenceGapCount;
         recalculate(newFlags, objectMapper, now);
     }
 
-    public void finalizeForSession(long minimumExpectedFrames, Set<String> finalFlags,
+    /**
+     * Final reconciliation at session completion: {@code authoritativeGapCount} replaces the running
+     * arithmetic (normally the one-off SQL count over stored rows) and the wall-clock expectation
+     * raises the expected total when the devices delivered less than the session duration implies.
+     */
+    public void finalizeForSession(long minimumExpectedFrames, long authoritativeGapCount, Set<String> finalFlags,
                                    ObjectMapper objectMapper, Instant now) {
+        sequenceGapCount = Math.max(0, authoritativeGapCount);
         expectedFrameCount = Math.max(receivedFrameCount + sequenceGapCount, minimumExpectedFrames);
         recalculate(finalFlags, objectMapper, now);
+    }
+
+    private long expectedSpan() {
+        long span = 0;
+        if (firstLeftSequence != null && lastLeftSequence != null) {
+            span += Math.max(0, lastLeftSequence - firstLeftSequence) + 1;
+        }
+        if (firstRightSequence != null && lastRightSequence != null) {
+            span += Math.max(0, lastRightSequence - firstRightSequence) + 1;
+        }
+        return span;
+    }
+
+    private static Long lower(Long current, long candidate) {
+        return current == null || candidate < current ? candidate : current;
     }
 
     private void recalculate(Set<String> newFlags, ObjectMapper objectMapper, Instant now) {
@@ -130,6 +170,9 @@ public class MeasurementQualityStats {
         if (flags.contains("RIGHT_DATA_INCOMPLETE")) penalty += 10;
         if (flags.contains("LEFT_DEVICE_DISCONNECTED")) penalty += 15;
         if (flags.contains("RIGHT_DEVICE_DISCONNECTED")) penalty += 15;
+        // Sequence / timing heuristics on the receiver-unwrapped u32 sequence and deviceTimeMs.
+        if (flags.contains("SEQUENCE_WRAP_SUSPECTED")) penalty += 10;
+        if (flags.contains("SAMPLE_RATE_MISMATCH")) penalty += 10;
         // Device-reported conditions (schemaVersion 1.1 flags / dataMode). IMU and battery reports are
         // informational for pressure quality and only FSR errors and filtered data reduce the score.
         if (flags.contains("FSR_ERROR_REPORTED")) penalty += 10;

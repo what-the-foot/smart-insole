@@ -40,6 +40,8 @@ public class PressureFrameIngestionService {
     public static final String DISPOSITION_HEADER = "X-Batch-Disposition";
     /** Sensor Data flags bit1 (IMU_ERROR): the receiver's imuAvailable is normalised to false. */
     static final int FLAG_IMU_ERROR = 0b10;
+    /** Monotonic u32 sequence as unwrapped by the receiver. */
+    public static final long MAX_SEQUENCE = 4294967295L;
     private static final Logger log = LoggerFactory.getLogger(PressureFrameIngestionService.class);
     private static final int IMU_AXES = 3;
     private static final int INT16_MIN = -32768;
@@ -184,8 +186,8 @@ public class PressureFrameIngestionService {
         if (side != device.getFootSide()) {
             return Validation.reject("FOOT_SIDE_MISMATCH", "기기 방향과 footSide가 다릅니다.");
         }
-        if (input.sequence() == null || input.sequence() < 0) {
-            return Validation.reject("INVALID_SEQUENCE", "sequence는 0 이상이어야 합니다.");
+        if (input.sequence() == null || input.sequence() < 0 || input.sequence() > MAX_SEQUENCE) {
+            return Validation.reject("INVALID_SEQUENCE", "sequence는 0에서 " + MAX_SEQUENCE + " 사이여야 합니다.");
         }
         if (input.deviceTimeMs() == null || input.deviceTimeMs() < 0) {
             return Validation.reject("INVALID_DEVICE_TIME", "deviceTimeMs는 0 이상이어야 합니다.");

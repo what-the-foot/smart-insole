@@ -21,6 +21,7 @@ import com.smartinsole.measurement.MeasurementDtos.SessionCompletedEvent;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -56,11 +57,19 @@ public class MeasurementService {
         this.qualityService = qualityService;
     }
 
+    /** Session sample rates: BLE transmit rate 50 Hz (100 Hz measurement decimated) or 100 Hz. */
+    public static final Set<Integer> SUPPORTED_SAMPLE_RATES = Set.of(50, 100);
+
     @Transactional
     public MeasurementSessionResponse create(UUID userId, CreateMeasurementSessionRequest request) {
-        if (request.sampleRateHz() != 100 || request.leftDeviceId().equals(request.rightDeviceId())) {
+        if (!SUPPORTED_SAMPLE_RATES.contains(request.sampleRateHz())) {
+            throw new BusinessException(ErrorCode.SEMANTIC_VALIDATION_FAILED,
+                    "sampleRateHz는 50 또는 100만 허용합니다.", Map.of("sampleRateHz", request.sampleRateHz()));
+        }
+        if (request.leftDeviceId().equals(request.rightDeviceId())) {
             throw new BusinessException(ErrorCode.INVALID_DEVICE_SELECTION);
         }
+        SourceType sourceType = request.sourceType() == null ? SourceType.DEVICE : request.sourceType();
         Device left = ownedDevice(request.leftDeviceId(), userId);
         Device right = ownedDevice(request.rightDeviceId(), userId);
         if (left.getFootSide() != FootSide.LEFT || right.getFootSide() != FootSide.RIGHT) {
@@ -82,7 +91,7 @@ public class MeasurementService {
         String memo = request.memo() == null ? null : request.memo().trim();
         MeasurementSession session = MeasurementSession.create(userId, left.getId(), right.getId(),
                 leftCalibration.getId(), rightCalibration.getId(), left.getSensorLayoutVersion(),
-                right.getSensorLayoutVersion(), 100, SourceType.SIMULATED, left.getAdcMax(), memo,
+                right.getSensorLayoutVersion(), request.sampleRateHz(), sourceType, left.getAdcMax(), memo,
                 Instant.now(clock));
         return response(sessions.save(session));
     }

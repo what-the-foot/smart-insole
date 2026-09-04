@@ -20,6 +20,8 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import com.smartinsole.support.TestSessions;
+import com.smartinsole.support.TestIngestionProperties;
+import com.smartinsole.measurement.MeasurementQualityStats.SideCursor;
 
 class QualityServiceTest {
     @Test
@@ -28,10 +30,11 @@ class QualityServiceTest {
         Instant now = Instant.parse("2026-09-02T07:10:00Z");
         MeasurementQualityStats stats = MeasurementQualityStats.create(UUID.randomUUID(), now);
 
-        stats.apply(2, 0, 0, 1, 3L, null, 30L, null, Set.of(), objectMapper, now);
+        stats.apply(2, 0, 0, new SideCursor(1, 3, 30), null, Set.of(), objectMapper, now);
+        assertThat(stats.getSequenceGapCount()).isEqualTo(1);
         assertThat(stats.flags(objectMapper)).contains("SEQUENCE_GAP");
 
-        stats.apply(1, 0, 0, 0, 3L, null, 30L, null, Set.of(), objectMapper, now.plusMillis(10));
+        stats.apply(1, 0, 0, new SideCursor(2, null, null), null, Set.of(), objectMapper, now.plusMillis(10));
 
         assertThat(stats.getSequenceGapCount()).isZero();
         assertThat(stats.flags(objectMapper)).doesNotContain("SEQUENCE_GAP");
@@ -57,7 +60,7 @@ class QualityServiceTest {
                             600 + index, 700 + index)));
         }
         QualityService service = new QualityService(qualities, frames, objectMapper,
-                new RealtimeProperties(10, Duration.ofSeconds(2)));
+                new RealtimeProperties(10, Duration.ofSeconds(2)), TestIngestionProperties.defaults());
 
         MeasurementQualityStats result = service.update(session, samples, samples.size(), 0, 0, now);
 
@@ -84,7 +87,7 @@ class QualityServiceTest {
                             500 + index, 600 + index, 700 + index, 800 + index)));
         }
         QualityService service = new QualityService(qualities, frames, objectMapper,
-                new RealtimeProperties(10, Duration.ofSeconds(2)));
+                new RealtimeProperties(10, Duration.ofSeconds(2)), TestIngestionProperties.defaults());
 
         MeasurementQualityStats result = service.update(session, samples, samples.size(), 0, 0, now);
 
@@ -113,7 +116,7 @@ class QualityServiceTest {
         when(frames.findRecentForQuality(sessionId, FootSide.LEFT, 20))
                 .thenAnswer(invocation -> List.copyOf(persisted.reversed()));
         QualityService service = new QualityService(qualities, frames, objectMapper,
-                new RealtimeProperties(10, Duration.ofSeconds(2)));
+                new RealtimeProperties(10, Duration.ofSeconds(2)), TestIngestionProperties.defaults());
 
         for (int sequence = 1; sequence <= 10; sequence++) {
             PressureFrameData frame = new PressureFrameData(deviceId, FootSide.LEFT, sequence, sequence * 10L,
@@ -135,7 +138,8 @@ class QualityServiceTest {
         session.start(now.minus(Duration.ofMinutes(10)));
         ObjectMapper objectMapper = new ObjectMapper();
         MeasurementQualityStats stats = MeasurementQualityStats.create(session.getId(), now.minusSeconds(1));
-        stats.apply(2, 0, 0, 0, 1L, 1L, 0L, 0L, Set.of(), objectMapper, now.minusSeconds(1));
+        stats.apply(2, 0, 0, new SideCursor(1, 1, 0), new SideCursor(1, 1, 0), Set.of(), objectMapper,
+                now.minusSeconds(1));
 
         MeasurementQualityRepository qualities = mock(MeasurementQualityRepository.class);
         PressureFrameRepository frames = mock(PressureFrameRepository.class);
@@ -145,7 +149,7 @@ class QualityServiceTest {
                 new SideCoverage(FootSide.LEFT, 1, 0, 0, now),
                 new SideCoverage(FootSide.RIGHT, 1, 0, 0, now)));
         QualityService service = new QualityService(qualities, frames, objectMapper,
-                new RealtimeProperties(10, Duration.ofSeconds(2)));
+                new RealtimeProperties(10, Duration.ofSeconds(2)), TestIngestionProperties.defaults());
 
         MeasurementQualityStats result = service.finalizeSession(session, now);
 

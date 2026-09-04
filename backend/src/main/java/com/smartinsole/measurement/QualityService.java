@@ -4,11 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartinsole.global.common.DomainTypes.DataMode;
 import com.smartinsole.global.common.DomainTypes.FootSide;
 import com.smartinsole.global.common.DomainTypes.ReceiverUploadState;
+import com.smartinsole.global.config.IngestionProperties;
 import com.smartinsole.global.config.RealtimeProperties;
 import com.smartinsole.measurement.IngestionDtos.PressureFrameData;
+import com.smartinsole.measurement.MeasurementQualityStats.SideCursor;
 import com.smartinsole.measurement.PressureFrameRepository.SideCoverage;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
@@ -20,17 +23,26 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class QualityService {
+    /** Minimum number of consecutive-sequence deltas before the sample rate is judged. */
+    static final int MIN_RATE_DELTAS = 4;
+    private static final long DEVICE_TIME_JUMP_MS = 1000;
+    /** protocolVersion 2 carries a native u32 sequence, so a wrap can no longer be suspected. */
+    private static final int WRAP_FREE_PROTOCOL_VERSION = 2;
+
     private final MeasurementQualityRepository qualities;
     private final PressureFrameRepository framesRepository;
     private final ObjectMapper objectMapper;
     private final RealtimeProperties realtimeProperties;
+    private final IngestionProperties ingestionProperties;
 
     public QualityService(MeasurementQualityRepository qualities, PressureFrameRepository framesRepository,
-                          ObjectMapper objectMapper, RealtimeProperties realtimeProperties) {
+                          ObjectMapper objectMapper, RealtimeProperties realtimeProperties,
+                          IngestionProperties ingestionProperties) {
         this.qualities = qualities;
         this.framesRepository = framesRepository;
         this.objectMapper = objectMapper;
         this.realtimeProperties = realtimeProperties;
+        this.ingestionProperties = ingestionProperties;
     }
 
     /**
@@ -45,27 +57,23 @@ public class QualityService {
         Map<FootSide, List<PressureFrameData>> bySide = validFrames.stream()
                 .collect(java.util.stream.Collectors.groupingBy(PressureFrameData::footSide,
                         () -> new EnumMap<>(FootSide.class), java.util.stream.Collectors.toList()));
-        long gaps = stats.getSequenceGapCount();
-        boolean recomputeGaps = false;
-        Long maxLeft = null;
-        Long maxRight = null;
-        Long lastLeftTime = null;
-        Long lastRightTime = null;
         Set<String> flags = new LinkedHashSet<>(reportedFlags(validFrames));
+        SideCursor left = null;
+        SideCursor right = null;
         for (FootSide side : FootSide.values()) {
             List<PressureFrameData> frames = bySide.getOrDefault(side, List.of());
             if (frames.isEmpty()) continue;
             if (isOutOfOrder(frames)) flags.add("OUT_OF_ORDER");
-            SequenceCursor cursor = advanceCursor(frames, stats.lastSequence(side), stats.lastDeviceTimeMs(side),
-                    flags);
-            gaps += cursor.newGapCount();
-            recomputeGaps |= cursor.requiresGapRecompute();
+            SideCursor cursor = advanceCursor(frames, stats.lastSequence(side), stats.lastDeviceTimeMs(side),
+                    ingestionProperties.sequenceWrapSuspectDistance(), flags);
             if (side == FootSide.LEFT) {
-                maxLeft = cursor.sequence();
-                lastLeftTime = cursor.deviceTimeMs();
+                left = cursor;
             } else {
-                maxRight = cursor.sequence();
-                lastRightTime = cursor.deviceTimeMs();
+                right = cursor;
+            }
+            if (hasSampleRateMismatch(frames, session.getSampleRateHz(),
+                    ingestionProperties.sampleRateMismatchTolerance())) {
+                flags.add("SAMPLE_RATE_MISMATCH");
             }
             List<PressureFrameData> detectionWindow = frames.size() >= 10 ? frames
                     : framesRepository.findRecentForQuality(sessionId, side, 20);
@@ -73,13 +81,7 @@ public class QualityService {
                 flags.add("SENSOR_STUCK_OR_SATURATED");
             }
         }
-        if (recomputeGaps) {
-            // A late frame can close an older gap. The full window query is reserved for this
-            // uncommon path; normal 100 Hz forward ingestion remains O(batch-size).
-            gaps = framesRepository.countSequenceGaps(sessionId);
-        }
-        stats.apply(accepted, duplicates, rejected, gaps, maxLeft, maxRight, lastLeftTime, lastRightTime,
-                flags, objectMapper, now);
+        stats.apply(accepted, duplicates, rejected, left, right, flags, objectMapper, now);
         return qualities.save(stats);
     }
 
@@ -120,8 +122,13 @@ public class QualityService {
             // The receiver's last status report says frames are still queued in its Outbox.
             flags.add("RECEIVER_UPLOAD_INCOMPLETE");
         }
+        // One authoritative reconciliation of the O(1) running arithmetic against the stored rows. After a
+        // suspected sequence wrap the row order is ambiguous, so the running value is kept instead.
+        long authoritativeGaps = stats.flags(objectMapper).contains("SEQUENCE_WRAP_SUSPECTED")
+                ? stats.getSequenceGapCount()
+                : framesRepository.countSequenceGaps(session.getId());
         long expectedTotal = expectedPerSide > Long.MAX_VALUE / 2 ? Long.MAX_VALUE : expectedPerSide * 2;
-        stats.finalizeForSession(expectedTotal, flags, objectMapper, now);
+        stats.finalizeForSession(expectedTotal, authoritativeGaps, flags, objectMapper, now);
         return qualities.save(stats);
     }
 
@@ -168,33 +175,72 @@ public class QualityService {
         return false;
     }
 
-    private static SequenceCursor advanceCursor(List<PressureFrameData> frames, long previousSequence,
-                                                long previousDeviceTime, Set<String> flags) {
+    /**
+     * Walks the batch in sequence order against the stored cursor. Forward frames advance the cursor,
+     * late frames only lower the first sequence, and a frame whose sequence dropped by at least
+     * {@code wrapDistance} while its device clock kept advancing is a suspected u16 wrap the receiver
+     * failed to unwrap (never for protocolVersion 2, whose sequence is a native u32).
+     */
+    static SideCursor advanceCursor(List<PressureFrameData> frames, long previousSequence,
+                                    long previousDeviceTime, long wrapDistance, Set<String> flags) {
         long sequence = previousSequence;
         long deviceTime = previousDeviceTime;
-        long newGaps = 0;
-        boolean requiresGapRecompute = false;
+        Long first = null;
+        Long last = null;
         List<PressureFrameData> ordered = frames.stream()
                 .sorted(Comparator.comparingLong(PressureFrameData::sequence)).toList();
         for (PressureFrameData frame : ordered) {
+            if (sequence >= 0 && wrapDetectionApplies(frame) && frame.sequence() + wrapDistance <= sequence
+                    && frame.deviceTimeMs() > deviceTime) {
+                flags.add("SEQUENCE_WRAP_SUSPECTED");
+                continue;
+            }
             if (frame.sequence() <= sequence) {
                 flags.add("OUT_OF_ORDER");
-                requiresGapRecompute = true;
+                first = first == null ? frame.sequence() : Math.min(first, frame.sequence());
                 continue;
             }
             if (deviceTime >= 0 && frame.deviceTimeMs() < deviceTime) {
                 flags.add("OUT_OF_ORDER");
             }
-            if (deviceTime >= 0 && frame.deviceTimeMs() - deviceTime > 1000) {
+            if (deviceTime >= 0 && frame.deviceTimeMs() - deviceTime > DEVICE_TIME_JUMP_MS) {
                 flags.add("DEVICE_TIME_JUMP");
             }
-            if (sequence >= 0) {
-                newGaps += frame.sequence() - sequence - 1;
-            }
+            first = first == null ? frame.sequence() : Math.min(first, frame.sequence());
+            last = frame.sequence();
             sequence = frame.sequence();
             deviceTime = frame.deviceTimeMs();
         }
-        return new SequenceCursor(sequence, deviceTime, newGaps, requiresGapRecompute);
+        if (first == null) return null;
+        Long lastDeviceTime = last == null ? null : Long.valueOf(deviceTime);
+        return new SideCursor(first.longValue(), last, lastDeviceTime);
+    }
+
+    private static boolean wrapDetectionApplies(PressureFrameData frame) {
+        return frame.protocolVersion() == null || frame.protocolVersion() < WRAP_FREE_PROTOCOL_VERSION;
+    }
+
+    /**
+     * Compares the median deviceTimeMs delta between consecutive sequences with the session sample
+     * period; a relative deviation above {@code tolerance} means the device streams at another rate.
+     */
+    static boolean hasSampleRateMismatch(List<PressureFrameData> frames, int sampleRateHz, double tolerance) {
+        List<PressureFrameData> ordered = frames.stream()
+                .sorted(Comparator.comparingLong(PressureFrameData::sequence)).toList();
+        List<Long> deltas = new ArrayList<>();
+        for (int index = 1; index < ordered.size(); index++) {
+            PressureFrameData previous = ordered.get(index - 1);
+            PressureFrameData current = ordered.get(index);
+            if (current.sequence() == previous.sequence() + 1) {
+                deltas.add(current.deviceTimeMs() - previous.deviceTimeMs());
+            }
+        }
+        if (deltas.size() < MIN_RATE_DELTAS) return false;
+        deltas.sort(Comparator.naturalOrder());
+        double median = deltas.size() % 2 == 1 ? deltas.get(deltas.size() / 2)
+                : (deltas.get(deltas.size() / 2 - 1) + deltas.get(deltas.size() / 2)) / 2.0;
+        double expectedPeriodMs = 1000.0 / sampleRateHz;
+        return Math.abs(median - expectedPeriodMs) > tolerance * expectedPeriodMs;
     }
 
     /**
@@ -218,7 +264,4 @@ public class QualityService {
         }
         return false;
     }
-
-    private record SequenceCursor(long sequence, long deviceTimeMs, long newGapCount,
-                                  boolean requiresGapRecompute) { }
 }

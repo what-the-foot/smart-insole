@@ -110,8 +110,9 @@ class RuleBasedAnalyzerTest {
     void finalizedOneSidedQualityScoreIsNotPenalizedTwiceByTheAnalyzer() {
         ObjectMapper mapper = new ObjectMapper();
         MeasurementQualityStats stats = MeasurementQualityStats.create(UUID.randomUUID(), Instant.now());
-        stats.apply(10, 0, 0, 0, 10L, null, 100L, null, Set.of(), mapper, Instant.now());
-        stats.finalizeForSession(20, Set.of("RIGHT_DATA_MISSING"), mapper, Instant.now());
+        stats.apply(10, 0, 0, new MeasurementQualityStats.SideCursor(1, 10, 100), null, Set.of(), mapper,
+                Instant.now());
+        stats.finalizeForSession(20, 0, Set.of("RIGHT_DATA_MISSING"), mapper, Instant.now());
         RuleBasedAnalyzer analyzer = new RuleBasedAnalyzer(mock(CalibrationProfileRepository.class),
                 mock(SensorLayoutRepository.class), mapper,
                 TestAnalysisProperties.defaults());

@@ -13,12 +13,18 @@ public final class MeasurementDtos {
     private MeasurementDtos() {
     }
 
+    /** {@code sourceType} is optional and defaults to DEVICE; only simulators send SIMULATED. */
     public record CreateMeasurementSessionRequest(
             @NotNull UUID leftDeviceId,
             @NotNull UUID rightDeviceId,
             @NotNull Integer sampleRateHz,
+            SourceType sourceType,
             @Size(max = 500) String memo
     ) {
+        public CreateMeasurementSessionRequest(UUID leftDeviceId, UUID rightDeviceId, Integer sampleRateHz,
+                                               String memo) {
+            this(leftDeviceId, rightDeviceId, sampleRateHz, null, memo);
+        }
     }
 
     public record MeasurementSessionResponse(

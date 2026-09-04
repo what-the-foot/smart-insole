@@ -262,7 +262,7 @@ class ApiFlowIntegrationTest {
                         .content(objectMapper.writeValueAsString(java.util.Map.of(
                                 "leftDeviceId", left, "rightDeviceId", right, "sampleRateHz", 100))))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.sourceType").value("SIMULATED"))
+                .andExpect(jsonPath("$.sourceType").value("DEVICE"))
                 .andReturn();
         String id = objectMapper.readTree(result.getResponse().getContentAsString()).path("sessionId").asText();
         mvc.perform(post("/api/v1/measurement-sessions/{id}/start", id)
