@@ -94,10 +94,13 @@ public class DeviceService {
                         ? activeCalibrations.get(device.getId()).getVersion() : null)).toList();
     }
 
+    /**
+     * Returns the layout regardless of its active flag: devices registered on a retired layout must
+     * keep rendering. Only {@link #register} requires an active layout.
+     */
     @Transactional(readOnly = true)
     public SensorLayoutResponse layout(String version) {
         SensorLayout layout = layouts.findById(version)
-                .filter(SensorLayout::isActive)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
         try {
             List<SensorPoint> points = objectMapper.readValue(layout.getPointsJson(), new TypeReference<>() { });
