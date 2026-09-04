@@ -208,3 +208,41 @@ FE-001 → FE-002 → FE-003 → FE-004
 - [ ] 기록 pagination
 - [ ] 모바일 핵심 조작
 - [ ] lint/test/build
+
+## 계약 1.1 대응 (개선안 3.4, 2026-09-04)
+
+| 항목 | 커밋 | 내용 |
+|---|---|---|
+| 타입 재생성 | `b830c89` | `schema.ts` 1.1.0 재생성, `types.ts` alias, SensorPoint `label`(선택·nullable) exact-key, 실시간 메시지 배열은 변경 없음(1.0 유지) |
+| FE-1 | `0961a24` | `resultTerms`(최대 센서 신호·추정 압력중심·총 신호·센서 신호 비율), 패턴 없음 문구, 금칙어 회귀 테스트 |
+| FE-2 | `4434762` | 히트맵 문구 교체, `sensor-share`(센서/전체합×100, 표시 전용), S01..S08 라벨 표시 |
+| FE-9 | `d027d35` | 8센서 기본값 `layout-s01s08-v1`, 6센서 옵션 비활성(활성 seed 없음), 기기 카드 adcMax·배터리(`미보정`) |
+| FE-4 | `d78a15c` | sampleRateHz 라디오 50/100(기본 50, `VITE_DEFAULT_SAMPLE_RATE_HZ`), 개발 모드 시뮬레이션 세션 체크박스 → `sourceType: SIMULATED` |
+| FE-8 | `cef014d` | `실기기 · 50Hz` 배지, SIMULATED 안내, 수신기 업로드 상태 안내(5초 폴링), 신규 품질 플래그 라벨, 세션 ID 복사, 기록 필터 6종 |
+| FE-3 | `714b41f` | 관찰 단계 배지·`발생 비율 62% (13/21 걸음)`, `observationSummary` 단계별 그룹, null이면 `관찰 단계 미제공(이전 분석)`, 센서 share 막대 |
+| FE-5 | `96a1974` | `leftPeak/rightPeak`는 sessionId 변경 시에만 초기화(토큰 교체 유지), docs/06 스케일 검증 절차 |
+| FE-6 | `ba6b520` | 만료 5분 전 배너·재로그인 다이얼로그·`lastSignoutReason` 안내, STOMP `TOKEN_EXPIRED` → `AUTH_EXPIRED`, AuthContext 이중 갱신 제거 |
+| FE-7 | `c842617` | `npm run api:check`, `frontend/AGENTS.md` 갱신 절차, `verify-all.ps1/.sh` 프론트 단계에 연결 |
+| 후속 | `c21cc13`, `e4739ff` | 추천 가이드 fixture를 rule-v1.2.0 코드로 갱신, 만진 파일 prettier 정리 |
+
+### 검증 기록 2026-09-04
+
+환경: Windows 11, Node 24 / npm 11, openapi-typescript 7.13.0, Vitest 3.2.7, ESLint 9 (`--max-warnings=0`).
+
+| 상태 | 검사 | 명령 | 결과 |
+|---|---|---|---|
+| PASS | 생성 타입 동기화 | `npm run api:check` | `schema.ts` 재생성 후 `git diff --exit-code` 0 |
+| PASS | 린트 | `npm run lint` | 0 errors, 0 warnings |
+| PASS | 테스트 | `npm run test -- --run` | 20 files, 125 tests passed, 0 failed |
+| PASS | 빌드 | `npm run build` | `prebuild` api:generate → `tsc -b` → `vite build` 성공, 빌드 후 `schema.ts` diff 0 |
+| PASS | 결과 화면 금칙어 | `ResultContent.test.tsx`(패턴 유무·rule-v1.2.0 fixture) | 렌더 텍스트에 '최대 압력'·'CoP'·'정상' 0건 |
+| PARTIAL | 포맷 | `npm run format:check` | 이 작업이 만진 파일은 모두 통과. 손대지 않은 기존 10개 파일(`eslint.config.js`, `tsconfig.json`, `AppErrorBoundary.tsx`, `FootDeviceSelector.tsx`, `Icon.tsx`, `StatusUi.tsx`, `main.tsx`, `DashboardPage.tsx`, `RecommendationPage.tsx`, `SignupPage.tsx`)는 이전부터 미포맷 상태로 남김 |
+| NOT RUN | mock E2E 60초 | `scripts/e2e_gateway_mock.py` | MySQL·백엔드·수신기 CLI 필요. 프론트 검증 범위 밖 |
+
+### 계획과 달라진 점
+
+- `CreateMeasurementSessionRequest.sourceType`은 계약상 생략 가능하지만 openapi-typescript가 `default`가 있는 속성을 필수로 생성하므로 프론트는 항상 `DEVICE` 또는 `SIMULATED`를 명시해 보낸다(계약 허용 값).
+- 기록 화면 패턴 필터는 계획의 9개가 아니라 계약(`PatternResult` 설명, `ObservationSummaryItem.code` enum)이 나열한 rule-v1.2.0 6종만 제공한다. 폐기 코드(`LOW_DATA_QUALITY`, `HIGH_MIDFOOT_LOAD`, `SHORT_CONTACT_TIME`)는 이전 기록 표시용 라벨(`(이전 분석)`)로만 남긴다.
+- `scripts/e2e_smoke.py`의 `default_layout_version`은 백엔드 작업에서 이미 `layout-s01s08-v1`로 바뀌어 있어 프론트 작업에서는 수정하지 않았다.
+- FE-6의 "만료 순간 AUTH_EXPIRED 배지"는 계획대로 제외했다(ProtectedRoute·purgeUserState 구조). 서버 ERROR 프레임 기반 매핑과 만료 전 배너·재로그인으로 대체한다.
+- 결과 화면의 센서 share 막대는 레이아웃 라벨(S01..)을 알 수 없어 `#index+1`(레이아웃 index 순)으로 표시한다.

@@ -14,7 +14,7 @@
 | PASS | 백엔드 테스트 (H2, `test` 프로필) | `gradlew.bat test --no-daemon --offline` | 74 tests, 0 failures, 0 errors, 1 skipped |
 | SKIP | MySQL Testcontainers | `MySqlIntegrationTest` | `@Testcontainers(disabledWithoutDocker = true)` — 이 환경에 Docker가 없어 실행되지 않음. Flyway V5–V7과 MySQL 8.4 SQL은 실행으로 검증하지 못했습니다 |
 | NOT RUN | API E2E smoke / gateway mock E2E | `scripts/e2e_smoke.py`, `scripts/e2e_gateway_mock.py` | MySQL·백엔드·수신기 CLI 필요 |
-| NOT RUN | 프론트엔드 | `npm run lint/test/build`, `api:generate` | 별도 작업(프론트 에이전트)에서 `schema.ts` 재생성 후 수행 |
+| PASS | 프론트엔드 (2026-09-04, 프론트 작업 후) | `npm run api:check`, `npm run lint`, `npm run test -- --run`, `npm run build` | api:check diff 0 · lint 0 errors/0 warnings · 20 files, 125 tests passed · build OK(빌드 후 schema.ts diff 0). `format:check`는 손대지 않은 기존 10개 파일만 미포맷(상세: `docs/05_FRONTEND_IMPLEMENTATION_PLAN.md` 검증 기록) |
 
 `gradlew test` 실행 클래스(74 tests): ApiFlowIntegrationTest, FrameBatchContractTest, ReceiverSessionControllerTest,
 PressureFrameIngestionServiceTest, MeasurementServiceTest, DeviceServiceTest, RecommendationServiceTest,
@@ -47,7 +47,7 @@ AsyncConfigTest, SecurityPropertiesTest, JwtServiceTest, MySqlIntegrationTest(sk
   CI 또는 로컬에서 Docker를 확보해 `MySqlIntegrationTest`를 실행해야 합니다.
 - `scripts/e2e_gateway_mock.py`는 수신기 저장소의 CLI·환경변수 이름(`settings.py`)과 `MetricsSnapshot` 필드명을 전제로
   작성했으며 실행하지 않았습니다. 수신기 2단계 완료 후 `verify-all --gateway-e2e`로 검증합니다.
-- 프론트엔드는 이 변경으로 `schema.ts` 재생성과 exact-key 배열·기본 레이아웃·`sourceType`·결과 화면 갱신이 필요하며
-  이 보고서에서는 실행하지 않았습니다.
+- 프론트엔드의 `schema.ts` 재생성, exact-key 배열, 기본 레이아웃, `sourceType`, 결과 화면 갱신은 이후 프론트 작업(FE-1~FE-9)에서
+  반영·검증했습니다. 결과는 위 표와 `docs/05_FRONTEND_IMPLEMENTATION_PLAN.md`의 검증 기록을 참조하세요.
 - 접촉 임계값(센서당 3.75), 관찰 단계 비율(0.20/0.60, 최소 창 4), 창별 임계값(forefoot 0.60, rearfoot 0.55, hallux 5 %)은
   모두 제안값이며 실측·임상 근거가 없습니다.
