@@ -129,6 +129,63 @@ describe('useRealtimeMeasurement', () => {
     expect(stompMock.deactivate).toHaveBeenCalledTimes(2);
   });
 
+  it('세션 최대 신호는 토큰 교체로 인한 재연결에서는 유지하고 세션 ID 변경 시에만 초기화한다', async () => {
+    const signin = (accessToken: string) =>
+      saveAuthResponse({
+        tokenType: 'Bearer',
+        accessToken,
+        expiresInSeconds: 3600,
+        user: {
+          userId: '7e95630d-6b53-4b1d-96f4-0acc7ab72e91',
+          email: 'walker@example.com',
+          name: '테스트 사용자',
+          createdAt: '2026-09-02T07:00:00Z',
+        },
+      });
+    signin('first-token');
+    vi.spyOn(measurementApi, 'snapshot').mockImplementation((sessionId) =>
+      Promise.resolve(
+        sessionId === sessionOne ? snapshot(sessionOne, 258, true) : snapshot(sessionTwo, 222, false),
+      ),
+    );
+    const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{children}</AuthProvider>;
+    const { result, rerender } = renderHook(
+      ({ sessionId }) => useRealtimeMeasurement(sessionId, true),
+      { initialProps: { sessionId: sessionOne }, wrapper },
+    );
+
+    // snapshot: left max 80, right max 60
+    await waitFor(() => expect(result.current.leftPeak).toBe(80));
+    expect(result.current.rightPeak).toBe(60);
+
+    // 더 큰 값이 도착하면 최대값이 갱신되고 작은 값은 최대값을 낮추지 않는다.
+    const spike = snapshot(sessionOne, 400, true);
+    if (!spike.left) throw new Error('left fixture is required');
+    spike.left.sensorValues = [12, 24, 51, 97, 61, 30];
+    act(() => stompMock.callbacks.at(-1)?.({ body: JSON.stringify(spike) }));
+    expect(result.current.leftPeak).toBe(97);
+    act(() => stompMock.callbacks.at(-1)?.({ body: JSON.stringify(snapshot(sessionOne, 100, true)) }));
+    expect(result.current.leftPeak).toBe(97);
+
+    // 토큰 교체 → 연결 effect 재실행(deactivate + 재구독). 최대값은 유지되어야 한다.
+    const deactivations = stompMock.deactivate.mock.calls.length;
+    act(() => {
+      signin('refreshed-token');
+    });
+    await waitFor(() => expect(stompMock.deactivate.mock.calls.length).toBe(deactivations + 1));
+    await waitFor(() => expect(result.current.message?.sessionId).toBe(sessionOne));
+    expect(result.current.leftPeak).toBe(97);
+    expect(result.current.rightPeak).toBe(60);
+
+    // 세션 변경 → 즉시 초기화된 뒤 새 세션 값으로 다시 누적된다.
+    rerender({ sessionId: sessionTwo });
+    expect(result.current.leftPeak).toBeNull();
+    expect(result.current.rightPeak).toBeNull();
+    await waitFor(() => expect(result.current.message?.sessionId).toBe(sessionTwo));
+    expect(result.current.leftPeak).toBe(80);
+    expect(result.current.rightPeak).toBeNull();
+  });
+
   it('먼저 구독한 뒤 snapshot을 복구하고 그 사이 도착한 최신 메시지를 되돌리지 않는다', async () => {
     saveAuthResponse({
       tokenType: 'Bearer',

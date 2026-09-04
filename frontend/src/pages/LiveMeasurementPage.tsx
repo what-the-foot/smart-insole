@@ -10,7 +10,7 @@ import { ErrorPanel, Spinner, StatePanel, StatusBadge } from '../components/Stat
 import { FootPressureHeatmap, PressureLegend } from '../features/realtime/FootPressureHeatmap';
 import { useRealtimeMeasurement, type RealtimeConnectionStatus } from '../features/realtime/useRealtimeMeasurement';
 import { formatDuration, formatPercent } from '../utils/format';
-import { qualityFlagLabel, qualityLabels, receiverStatusHint, sessionSourceBadge } from '../utils/labels';
+import { qualityFlagLabel, qualityLabels, receiverStatusHint, resultTerms, sessionSourceBadge } from '../utils/labels';
 
 const connectionLabel: Record<RealtimeConnectionStatus, string> = {
   IDLE: '대기', CONNECTING: '연결 중', CONNECTED: '연결됨', RECONNECTING: '연결 복구 중', DISCONNECTED: '연결 끊김', ERROR: '연결 오류',
@@ -134,6 +134,7 @@ export function LiveMeasurementPage() {
           <div className="balance-meter__labels"><strong>L {balance ? formatPercent(balance.left) : '—'}</strong><strong>R {balance ? formatPercent(balance.right) : '—'}</strong></div>
           <div className="balance-meter__track" aria-hidden="true"><span style={{ width: `${(balance?.left ?? 0.5) * 100}%` }} /></div>
         </div>
+        <p className="session-peak">세션 {resultTerms.peakSignal}: L {live.leftPeak === null ? '—' : Math.round(live.leftPeak)} · R {live.rightPeak === null ? '—' : Math.round(live.rightPeak)} <small>(0–100 상대값, 세션 시작 이후 누적)</small></p>
         <PressureLegend />
       </section>
 

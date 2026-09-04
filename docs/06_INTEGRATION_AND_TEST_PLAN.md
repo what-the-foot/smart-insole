@@ -145,6 +145,19 @@ A 세션 → B REST 403 → B topic 거절
 새로고침 → 세션 상세 → snapshot → 재구독
 ```
 
+### 실기기 스케일 검증 (프론트 FE-5)
+
+실시간 `sensorValues`는 세션 `adcMax` 기준 0~100 상대값이다(DEC-025). 프론트 Live 화면의
+"세션 최대 센서 신호"(`leftPeak/rightPeak`)는 sessionId가 바뀔 때만 초기화되고, 토큰 교체로
+STOMP 연결 effect가 다시 실행되어도 유지된다(`useRealtimeMeasurement.test.tsx`).
+
+- 실기기 스케일 검증은 백엔드가 4095 스케일로 전환된 뒤(계약 1.1.0, V5 `adc_max`) 단계에서
+  수행한다. 절차: 실기기 세션(`sourceType DEVICE`, 50Hz)에서 무부하 2초 → 직립 10초 → 보행 후,
+  Live 화면의 세션 최대 신호가 무부하 구간에서 0 근처, 직립·보행 구간에서 100 미만(포화 아님)에
+  머무는지와 `SENSOR_SATURATION`/`SENSOR_STUCK_OR_SATURATED` 플래그가 붙지 않는지 확인한다.
+- 전환 전(레거시 65535 스케일 기기·세션)의 기대값 약 6 / `NO_CONTACT`는 회귀 관찰용 참고값일
+  뿐이며 합격 기준이 아니다. 전환 전 값을 스케일 검증 결과로 기록하지 않는다.
+
 ## 성능 관찰
 
 - 양발 초당 약 200프레임 입력

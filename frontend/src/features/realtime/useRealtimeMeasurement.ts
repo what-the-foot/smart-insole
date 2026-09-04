@@ -23,9 +23,24 @@ export interface RealtimeState {
   right: PresentFootData | null;
   leftDisconnected: boolean;
   rightDisconnected: boolean;
+  /** 세션 동안 관찰된 발별 최대 센서 신호(0~100 상대값). sessionId가 바뀔 때만 초기화된다. */
+  leftPeak: number | null;
+  rightPeak: number | null;
   dataStale: boolean;
   error: string | null;
 }
+
+interface SessionPeaks {
+  sessionId: string;
+  left: number | null;
+  right: number | null;
+}
+
+const maxSensorValue = (foot: PresentFootData): number =>
+  foot.sensorValues.reduce((max, value) => (value > max ? value : max), 0);
+
+const higher = (current: number | null, candidate: number): number =>
+  current === null || candidate > current ? candidate : current;
 
 export function useRealtimeMeasurement(sessionId: string, enabled: boolean): RealtimeState {
   const { session } = useAuth();
@@ -33,6 +48,8 @@ export function useRealtimeMeasurement(sessionId: string, enabled: boolean): Rea
   const [message, setMessage] = useState<RealtimePressureMessage | null>(null);
   const [left, setLeft] = useState<PresentFootData | null>(null);
   const [right, setRight] = useState<PresentFootData | null>(null);
+  // 최대 신호는 sessionId 기준으로만 유지한다. 토큰 교체로 연결 effect가 다시 실행되어도 지워지지 않는다(FE-5).
+  const [peaks, setPeaks] = useState<SessionPeaks>({ sessionId, left: null, right: null });
   const [dataStale, setDataStale] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lastMessageAt = useRef<number | null>(null);
@@ -54,6 +71,15 @@ export function useRealtimeMeasurement(sessionId: string, enabled: boolean): Rea
     setMessage(next);
     if (next.left) setLeft(next.left);
     if (next.right) setRight(next.right);
+    setPeaks((previous) => {
+      const base: SessionPeaks =
+        previous.sessionId === sessionId ? previous : { sessionId, left: null, right: null };
+      return {
+        sessionId,
+        left: next.left ? higher(base.left, maxSensorValue(next.left)) : base.left,
+        right: next.right ? higher(base.right, maxSensorValue(next.right)) : base.right,
+      };
+    });
     lastMessageAt.current = Date.now();
     setDataStale(false);
     setError(null);
@@ -157,6 +183,7 @@ export function useRealtimeMeasurement(sessionId: string, enabled: boolean): Rea
   const currentMessage = hasCurrentMessage ? message : null;
   const currentLeft = hasCurrentMessage ? left : null;
   const currentRight = hasCurrentMessage ? right : null;
+  const currentPeaks = enabled && peaks.sessionId === sessionId ? peaks : null;
 
   return {
     connectionStatus: enabled ? connectionStatus : 'IDLE',
@@ -167,6 +194,8 @@ export function useRealtimeMeasurement(sessionId: string, enabled: boolean): Rea
       currentMessage?.left === null || currentMessage?.left?.connected === false,
     rightDisconnected:
       currentMessage?.right === null || currentMessage?.right?.connected === false,
+    leftPeak: currentPeaks?.left ?? null,
+    rightPeak: currentPeaks?.right ?? null,
     dataStale: hasCurrentMessage && dataStale,
     error: enabled ? error : null,
   };
