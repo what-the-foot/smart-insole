@@ -34,6 +34,8 @@ docker compose --env-file .env up -d
 
 `local` 프로필은 저장소 루트의 `.env`를 자동으로 읽습니다. 백엔드는 별도의 환경변수 복사 없이 실행할 수 있습니다.
 
+`.env`에 `SEED_ADMIN_EMAIL`과 `SEED_ADMIN_PASSWORD`(8자 이상)를 두면 `local` 프로필의 백엔드가 시작할 때 그 계정을 한 번 만듭니다. 이미 있으면 건너뛰고, 비밀번호는 로그에 남기지 않습니다. 이 프로젝트에는 권한 구분이 없으므로 시드 계정도 일반 사용자와 같은 권한을 가집니다. `prod` 프로필에서는 동작하지 않습니다.
+
 ```powershell
 cd backend
 .\gradlew.bat bootRun

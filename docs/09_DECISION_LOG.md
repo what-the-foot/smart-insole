@@ -151,6 +151,13 @@ CONNECT/SUBSCRIBE도 같은 메시지로 거절합니다. 프론트는 이를 AU
 발별 `lastSequence`(START_AND_SYNC 후 0부터)로 프레임 수를 추정해 ±10%로 비교합니다.
 이 스크립트는 MySQL·백엔드·수신기 CLI가 모두 있을 때만 실행하며 기본 검증 체인에서는 SKIP입니다.
 
+## DEC-033 local 프로필 시드 계정 — ACCEPTED
+`.env`의 `SEED_ADMIN_EMAIL`·`SEED_ADMIN_PASSWORD`(선택 `SEED_ADMIN_NAME`)가 있으면 `local` 프로필의
+`SeedAccountInitializer`(ApplicationRunner)가 시작 시 `AuthService.signup`으로 계정을 한 번 만듭니다.
+값이 비어 있거나 계정이 이미 있으면 건너뛰고, 비밀번호 8자 미만·이메일 형식 오류는 경고만 남긴 뒤
+기동을 계속합니다. Flyway migration에 계정을 넣지 않는 이유는 비밀번호 해시가 모든 환경에 배포되기
+때문입니다. 권한 모델이 없으므로 이 계정은 일반 사용자와 같고, `prod` 프로필에는 등록되지 않습니다.
+
 ## 구현 중 계획과 달라진 점 (2026-09-04)
 - V5 `pressure_frames` 메타 컬럼은 계획의 11개에 `flags`를 더한 12개(INSERT 26컬럼)입니다.
   `StoredPressureFrame`이 `flags`를 노출하려면 저장이 필요합니다.

@@ -11,3 +11,7 @@ app:
     jwt-secret: ${JWT_SECRET:local-development-key-change-before-use-32bytes}
   receiver:
     api-key: ${RECEIVER_API_KEY:local-receiver-key-change-before-use}
+  seed-account:
+    email: ${SEED_ADMIN_EMAIL:}
+    password: ${SEED_ADMIN_PASSWORD:}
+    name: ${SEED_ADMIN_NAME:Admin}

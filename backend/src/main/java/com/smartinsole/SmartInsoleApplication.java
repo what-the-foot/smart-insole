@@ -6,6 +6,7 @@ import com.smartinsole.global.config.CorsProperties;
 import com.smartinsole.global.config.IngestionProperties;
 import com.smartinsole.global.config.RealtimeProperties;
 import com.smartinsole.global.config.ReceiverProperties;
+import com.smartinsole.global.config.SeedAccountProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -19,7 +20,8 @@ import org.springframework.scheduling.annotation.EnableAsync;
         IngestionProperties.class,
         RealtimeProperties.class,
         AnalysisProperties.class,
-        CorsProperties.class
+        CorsProperties.class,
+        SeedAccountProperties.class
 })
 public class SmartInsoleApplication {
     public static void main(String[] args) {
