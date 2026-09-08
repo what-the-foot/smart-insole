@@ -27,6 +27,7 @@ public class AnalysisResult {
     @Column(name = "algorithm_version", nullable = false, length = 50)
     private String algorithmVersion;
 
+    @JdbcTypeCode(SqlTypes.SMALLINT)
     @Column(name = "quality_score", nullable = false)
     private int qualityScore;
 

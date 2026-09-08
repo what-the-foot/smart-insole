@@ -35,6 +35,7 @@ public class Device {
     @Column(name = "foot_side", nullable = false, length = 16)
     private FootSide footSide;
 
+    @JdbcTypeCode(SqlTypes.SMALLINT)
     @Column(name = "sensor_count", nullable = false)
     private int sensorCount;
 

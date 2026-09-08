@@ -43,6 +43,7 @@ public class MeasurementQualityStats {
     @Column(name = "flags_json", nullable = false, columnDefinition = "json")
     private String flagsJson;
 
+    @JdbcTypeCode(SqlTypes.SMALLINT)
     @Column(nullable = false)
     private int score;
 

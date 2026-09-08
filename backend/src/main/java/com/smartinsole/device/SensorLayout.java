@@ -15,6 +15,7 @@ public class SensorLayout {
     @Column(length = 50)
     private String version;
 
+    @JdbcTypeCode(SqlTypes.SMALLINT)
     @Column(name = "sensor_count", nullable = false)
     private int sensorCount;
 

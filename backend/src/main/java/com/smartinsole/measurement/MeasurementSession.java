@@ -56,6 +56,7 @@ public class MeasurementSession {
     @Column(nullable = false, length = 24)
     private MeasurementStatus status;
 
+    @JdbcTypeCode(SqlTypes.SMALLINT)
     @Column(name = "sample_rate_hz", nullable = false)
     private int sampleRateHz;
 
@@ -83,6 +84,7 @@ public class MeasurementSession {
     @Column(length = 500)
     private String memo;
 
+    @JdbcTypeCode(SqlTypes.SMALLINT)
     @Column(name = "data_quality_score")
     private Integer dataQualityScore;
 

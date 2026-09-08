@@ -73,6 +73,8 @@
 | 수신기 | 실제 BLE 장치, 실제 백엔드 E2E | NOT RUN |
 | 백엔드 | `gradlew test --offline` (JDK 21) | PASS (74, 1 skipped: Docker 없음) |
 | 백엔드 | `python scripts/validate_contracts.py` | PASS (14) |
+| 백엔드 | 실제 MySQL 8.0(로컬 서비스)에서 `bootRun` 기동, Flyway V1~V7 적용, Hibernate validate (2026-09-08) | PASS. 첫 기동에서 SMALLINT 컬럼 6개와 엔티티 int 매핑 불일치로 validate가 실패해 `@JdbcTypeCode(SMALLINT)`로 수정 |
+| 백엔드 | `local` 프로필 시드 계정 생성과 `POST /api/v1/auth/signin` (2026-09-08) | PASS (200, Bearer 토큰 발급) |
 | 프론트엔드 | `npm run lint` / `npm run test -- --run` / `npm run build` / `npm run api:check` | PASS (0 경고 / 125 tests / build / diff 없음) |
 | 전체 | `scripts/e2e_gateway_mock.py` 60초 | NOT RUN (MySQL·백엔드 실행 환경 필요) |
 | 전체 | 실기기 양발 30분 | NOT RUN |
