@@ -12,7 +12,7 @@
 
 ## 계약과 합성 입력
 
-- `contracts/openapi.yaml`: REST API 단일 계약 (1.1.0: Frame Batch 1.1, 수신기 세션 조회·receiver-status, rule-v1.2.0 결과)
+- `contracts/openapi.yaml`: REST API 단일 계약 (1.3.0: Frame Batch 1.1, 수신기 세션 조회·receiver-status, rule-v1.3.0 결과와 기록 요약 지표, rule-v1.4.0 IMU 정강이 움직임 요약 `movementSummary`)
 - `contracts/realtime-message.schema.json`: STOMP payload 계약
 - `fixtures/manifest.json`: fixture 목적과 파일 매핑
 - `fixtures/frame-batch-*.json`: 정상, 6센서, 중복, gap, 역순, stuck, 비대칭, 한쪽 단절 입력(1.0)과 실기기 수신기 형태의 1.1 배치(`frame-batch-device-v1_1.json`)
@@ -23,14 +23,16 @@
 - `backend/build.gradle`, `backend/settings.gradle`, `backend/gradlew*`: Java 21/Spring Boot 빌드
 - `backend/Dockerfile`: 운영용 컨테이너 빌드
 - `backend/src/main/resources/application*.yml`: local/test/prod 설정
-- `backend/src/main/resources/db/migration/`: V1 schema, V2 seed, V3 품질·index, V4 valid_step_count, V5 1.1 메타·adc_max·receiver, V6 layout-s01s08-v1, V7 관찰 필드
-- `backend/src/main/java/com/smartinsole/auth/`: 회원가입, 로그인, BCrypt/JWT
-- `backend/src/main/java/com/smartinsole/device/`: 센서 layout, 기기, 기능 시험용 활성 보정
-- `backend/src/main/java/com/smartinsole/measurement/`: 세션 상태, 기록, JDBC batch 수신(1.1), 수신기 세션 조회·receiver-status, 품질 통계(O(1) gap, wrap·sample-rate 휴리스틱)
-- `backend/src/main/java/com/smartinsole/realtime/`: snapshot, CoP, 10Hz STOMP, 연결·구독 권한
-- `backend/src/main/java/com/smartinsole/analysis/`: durable job, 재시도·재시작 복구, rule-v1.2.0 규칙 분석(PatternCatalog, 관찰 단계), 결과
+- `backend/src/main/resources/db/migration/`: V1 schema, V2 seed, V3 품질·index, V4 valid_step_count, V5 1.1 메타·adc_max·receiver, V6 layout-s01s08-v1, V7 관찰 필드, V8 보행 지표(좌우 신호 비율·스트라이드 시간), V9 움직임 요약(`movement_summary_json`)
+- `backend/src/main/java/com/smartinsole/global/`: `common/`(enum), `config/`(app.* 속성), `error/`(오류 형식·traceId), `security/`(JWT·Receiver Key 필터)
+- 도메인 패키지는 `controller/`, `service/`, `domain/`, `repository/`, `dto/` 하위 패키지로 계층을 나눕니다(필요한 계층만 존재, DEC-034)
+- `backend/src/main/java/com/smartinsole/auth/`, `user/`: 회원가입, 로그인, BCrypt/JWT, 시드 계정, 사용자 엔티티
+- `backend/src/main/java/com/smartinsole/device/`, `calibration/`: 센서 layout, 기기, heartbeat, 기능 시험용 활성 보정
+- `backend/src/main/java/com/smartinsole/measurement/`: 세션 상태(`domain/`), 기록·JDBC batch 수신(1.1)·수신기 세션 조회·receiver-status·품질 통계(`service/`), 프레임 JDBC 저장소(`repository/`)
+- `backend/src/main/java/com/smartinsole/realtime/`: snapshot·CoP·10Hz STOMP(`service/`), WebSocket 설정(`config/`), 연결·구독 권한(`security/`)
+- `backend/src/main/java/com/smartinsole/analysis/`: durable job·재시도·재시작 복구(`service/`), rule-v1.4.0 규칙 분석(압력 6종 패턴·보행 지표 + IMU 정강이 움직임 요약)·PatternCatalog·결과 엔티티(`domain/`)
 - `backend/src/main/java/com/smartinsole/recommendation/`: 추천 상세 조회와 결과 연결
-- `backend/src/test/`: 도메인·통합·보안·동시성·MySQL Testcontainers 검증, `FrameBatchContractTest`(1.1 fixture 왕복), `support/` 테스트 헬퍼
+- `backend/src/test/java/com/smartinsole/<domain>/<layer>/`: 대상 클래스와 같은 패키지의 도메인·통합·보안·동시성 검증, `measurement/controller/FrameBatchContractTest`(1.1 fixture 왕복), 루트의 `ApiFlowIntegrationTest`·`MySqlIntegrationTest`(Testcontainers), `support/` 테스트 헬퍼
 
 ## 프런트엔드
 
@@ -45,7 +47,7 @@
 
 ## 실행·검증 도구
 
-- `scripts/validate_contracts.py`: OpenAPI, JSON Schema, fixture 의미·보안 검증
+- `scripts/validate_contracts.py`: OpenAPI(버전·enum·Contract 1.1/1.2/1.3 nullable·중립 용어 정책), JSON Schema, fixture 의미·보안 검증
 - `scripts/verify-all.{sh,ps1}`: 계약 → backend → frontend → 선택 E2E → 선택 gateway mock E2E(`--gateway-e2e`/`-GatewayE2E`)
 - `scripts/mock-receiver/`: 세션 sourceType·sampleRateHz를 확인하는 schemaVersion 1.1 합성 Receiver
 - `scripts/e2e_smoke.py`: 가입부터 결과·추천·기록까지 API smoke
@@ -67,3 +69,4 @@
 - `docs/09_DECISION_LOG.md`: 설계 결정 기록
 - `docs/10_UI_SPEC.md`: 화면·상태·문구 명세
 - `docs/11_HUMAN_REVIEW_CHECKLIST.md`: 승인 전 사람 검토 항목
+- `docs/11_IMU_MOVEMENT_ROADMAP.md`: IMU 정강이 움직임 분석(rule-v1.4.0) 데이터 흐름, 파이프라인 단계, 검증 게이트, 위험·노력 추정

@@ -26,12 +26,16 @@ PowerShell에서는 각 `.sh`와 같은 이름의 `.ps1` 래퍼를 사용할 수
 
 `validate_contracts.py`는 다음을 실패 코드와 함께 검사합니다.
 
-- OpenAPI 3.0.3 / `info.version` 1.1.0 파싱, 필수 operation(수신기 세션 조회·receiver-status 포함), 고유 `operationId`
+- OpenAPI 3.0.3 / `info.version` 1.3.0 파싱, 필수 operation(수신기 세션 조회·receiver-status 포함), 고유 `operationId`
 - 모든 local `$ref` 해석
 - 공통 enum(ObservationLevel·DataMode·ReceiverUploadState 포함)과 실시간 enum 일치
 - 회원가입·로그인 비밀번호의 UTF-8 72-byte BCrypt 계약
 - 계약 1.1 필드 정책: `sensorValues` 상한 4095, `sequence` u32, `sampleRateHz` [50, 100], `sourceType` 기본 DEVICE,
   1.1 프레임 선택 필드, `SensorPoint.label`, 수신기 세션·상태 스키마, 관찰 단계 필드
+- 계약 1.2 보행 지표 정책: `leftLoadSharePct/rightLoadSharePct`·`left/right/meanStrideTimeMs`·기록 요약 10개 필드의
+  nullable·선택·범위·중립 용어
+- 계약 1.3 움직임 요약 정책: `movementSummary` nullable·선택, `MovementSummary`/`MovementFootSummary` 필드·타입·범위,
+  설명에 "정강이"·"기능 검증용" 필수, 발 관절(내번/외번/진행각)·판정 용어 금지
 - Draft 2020-12 실시간 schema와 날짜·UUID format을 포함한 예시 검증
 - OpenAPI `FrameBatchRequest`에 대한 모든 frame fixture 검증(4095 스케일, 4096 거부)
 - 정상·비대칭·중복·gap·stuck·한쪽 발·out-of-order·6센서·1.1 실기기 fixture 의도 확인
@@ -91,7 +95,7 @@ Receiver Key는 출력하지 않습니다.
 SMART_INSOLE_RECEIVER_KEY=... ./scripts/e2e-smoke.sh
 ```
 
-합성 계정으로 가입/로그인 → 양발 기기(`layout-s01s08-v1`) → 세션 생성(`sourceType: SIMULATED`, 100 Hz)/시작 → fixture 수신 → REST 실시간 snapshot의 JSON Schema·양발·sequence 검증 → 종료 → 결과 polling(`rule-v1.2.0`, `observationSummary` 6종) → 추천 상세 → 필터 기록 확인을 수행합니다. 6센서 fixture는 활성 6센서 seed가 없으므로 `--sensor-layout-version`을 명시해야 합니다. `--run-id`가 같으면 동일 합성 계정과 기기를 재사용할 수 있습니다. 삭제 API가 계약에 없으므로 생성된 smoke 데이터는 자동 삭제하지 않습니다.
+합성 계정으로 가입/로그인 → 양발 기기(`layout-s01s08-v1`) → 세션 생성(`sourceType: SIMULATED`, 100 Hz)/시작 → fixture 수신 → REST 실시간 snapshot의 JSON Schema·양발·sequence 검증 → 종료 → 결과 polling(`rule-v1.4.0`, `observationSummary` 6종, `movementSummary` 키 존재·null 정책) → 추천 상세 → 필터 기록 확인을 수행합니다. 6센서 fixture는 활성 6센서 seed가 없으므로 `--sensor-layout-version`을 명시해야 합니다. `--run-id`가 같으면 동일 합성 계정과 기기를 재사용할 수 있습니다. 삭제 API가 계약에 없으므로 생성된 smoke 데이터는 자동 삭제하지 않습니다.
 
 ## Gateway mock E2E (하드웨어 없는 전 구간)
 
@@ -112,7 +116,7 @@ SMART_INSOLE_RECEIVER_KEY=... python scripts/e2e_gateway_mock.py \
 판정: STOMP 메시지 ≥ 0.8 × publish-hz × duration 전부 스키마 PASS, 수신기 `MetricsSnapshot`의
 `outbox_pending == 0`·`batches_terminal_failed == 0`·`outbox_terminal_failed == 0`·모든 큐 `overflows == 0`,
 수신기 accepted가 `2 × sampleRateHz × duration`의 ±10% 이내이며 백엔드 실시간 snapshot의 `lastSequence`로 추정한 프레임 수와도 ±10% 이내,
-재생 실행 시 duplicates ≥ 3·백엔드 cursor 불변, 결과 `COMPLETED`·`rule-v1.2.0`·`observationSummary` 6종·세션 `SIMULATED`.
+재생 실행 시 duplicates ≥ 3·백엔드 cursor 불변, 결과 `COMPLETED`·`rule-v1.4.0`·`observationSummary` 6종·세션 `SIMULATED`.
 수신기 환경변수 이름은 수신기 `settings.py`를 따르며 `--gateway-env KEY=VALUE`, `--gateway-key-env`, `--gateway-base-url-env`로 덮어쓸 수 있습니다.
 백엔드 `received_frame_count`는 API로 노출되지 않으므로 실시간 snapshot의 `lastSequence`(START_AND_SYNC 후 0부터)로 추정합니다.
 
@@ -131,3 +135,29 @@ python scripts/observe_long_run.py \
 ```
 
 고정 seed로 양발 약 200 frame/s(`--sample-rate-hz` 50이면 100 frame/s)를 12비트(0..4095) 스케일로 생성하고 요청 지연, 처리 count, 실제 wall time과 처리량을 기록합니다. `--sample-rate-hz`는 세션의 `sampleRateHz`와 같아야 합니다. 결과는 관찰값이며 SLA 또는 임상 성능을 주장하지 않습니다. `--dry-run`으로 네트워크 없이 결정적 생성 경로를 확인할 수 있습니다.
+
+## 더미 데이터 시드 (UI 확인용)
+
+`seed_dummy_data.py`는 로컬 백엔드에 화면 확인용 합성 데이터를 넣습니다. 저장소 루트 `.env`의 `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`로 로그인하고 `RECEIVER_API_KEY`로 수신기 API를 호출하며, 값은 출력하지 않습니다.
+
+```powershell
+.\scripts\seed-dummy-data.ps1                # 기기 2쌍 + 세션 13개(패턴 6종·품질 낮음·취소·실패·준비됨, 대부분 정강이 IMU 포함)
+.\scripts\seed-dummy-data.ps1 --dry-run      # HTTP 없이 시나리오별 예상 관찰 단계와 정강이 움직임 지표 예상값 출력
+.\scripts\seed-dummy-data.ps1 --live 60      # 추가로 60초 동안 실시간 화면용 세션을 페이싱 전송
+.\scripts\seed-dummy-data.ps1 --reset        # 이 계정의 기존 기기·세션·결과를 MySQL에서 지우고 다시 시드
+.\scripts\seed-dummy-data.ps1 --no-imu       # 모든 세션을 schemaVersion 1.0(IMU 없음)으로 전송
+```
+
+```bash
+./scripts/seed-dummy-data.sh --list
+```
+
+흐름: 로그인 → `layout-s01s08-v1` 8센서 기기 등록(기본 쌍 + 예비 쌍, heartbeat로 배터리·연결 끊김 표시) → 시나리오별 세션 생성·시작 → 결정적 합성 프레임(최대 200 frame/batch) 전송 → 완료·분석 대기(또는 취소). 시나리오는 `--list`로 확인하며(IMU 열은 1.1 배치 여부) 각 시나리오는 rule-v1.4.0의 패턴 코드 하나, 품질 플래그, 상태(취소·준비됨)가 화면에 나타나도록 센서 가중치와 결함(오른발 누락, sequence gap, 순서 뒤바뀜, 4095 고정 센서)을 조정한 것입니다. 모든 세션은 기본값 `sourceType: SIMULATED`이며 `--source-type DEVICE`는 실기기 화면 모양을 볼 때만 사용합니다.
+
+**2초 정지 구간.** 모든 세션(`--live` 포함)은 시작 후 2.0초 동안 양발을 균형 가중치 × 0.5 진폭으로 딛고 정지한 구간(미세 jitter만)으로 시작하고 그 뒤 보행 주기가 이어집니다. 실시간 화면이 시작 버튼 뒤 보여주는 카운트다운 프로토콜과 같으며, 백엔드는 이 구간을 데이터에서 스스로 찾아 IMU 기준 자세(`QUIET_STANDING`)로 씁니다. 오른발이 빠진 `poor_quality`는 양발 접촉이 없어 `FIRST_STANCE` 대체 기준을 보게 됩니다.
+
+**정강이 IMU(schemaVersion 1.1).** `balanced_50hz`·`cancelled`를 제외한 시나리오는 1.1 배치(`batchId`, 프레임별 `receivedAt`(기기 시각 + 발별 수신 지연), `protocolVersion` 1, `dataMode` RAW, `calibrated` false, `imuAvailable` true, `accelMg`/`gyroDps10` int16 3축 배열 `[x, y, z]`)로 합성 정강이 IMU를 보냅니다. 정강이 기준 좌표계(x 앞, y 왼쪽, z 위)에서 중력(정지 시 +1 g 위) + 작은 운동 성분의 가속도, 유각기의 앞으로 내딛는 회전(왼쪽 축 기준 음의 회전, 최대 약 260~340 °/s), 입각기의 느린 양의 회전(입각기 전후 회전 범위 약 15~21°), 시나리오별 중간 입각기 좌우 기울기 오프셋(balanced 0°, `lateral_low_hallux` +6°, `medial` −5°, `asymmetry` 좌우 다름 등), 작은 수평 회전을 만든 뒤, 발마다 고정된 장착 회전(왼발 x 35°·z 20°, 오른발 x −28°·z −15°)을 적용하고 int16 mg·0.1 °/s로 변환합니다. 백엔드의 세션별 자동 축 정렬이 이 회전을 스스로 풀어야 하므로 정렬 경로가 실제로 실행됩니다. 1.0으로 남긴 두 시나리오에서는 `movementSummary` null 상태를, `--no-imu`에서는 전체 null 상태를 확인할 수 있습니다. 모두 기능 검증용 합성값이며 임상적 의미는 없습니다.
+
+`--dry-run`은 압력 패턴 예상 외에, 장착 회전을 아는 상태에서 같은 규칙으로 계산한 정강이 지표 예상값(좌우 기울기, 전후·수평 회전 범위, 유각기 최대 각속도, 창 수)을 발별로 출력합니다(백엔드는 PCA 정렬을 쓰므로 소수점은 다를 수 있음). 시드 후 요약에는 결과의 `movementSummary`(imuCoverage, referenceMethod, 발별 지표 또는 null)를 세션마다 함께 표시합니다.
+
+API 흐름이 끝나면 `mysql.exe`와 `.env`의 `DB_*` 값으로 세션·결과·프레임의 시각(`received_at`, 1.1이면 `receiver_received_at`도)을 지난 3주에 걸쳐 분산하고 "실패" 예시 세션의 상태를 `FAILED`로 바꿉니다(`--no-shift-dates`로 생략). `mysql.exe`나 DB 자격 증명이 없으면 이 단계는 경고와 함께 건너뜁니다. `--live`는 `--live-keep`을 주지 않는 한 종료 시 세션을 완료합니다. 임상적 의미는 없습니다.

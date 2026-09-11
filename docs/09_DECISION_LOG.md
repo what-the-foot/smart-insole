@@ -158,6 +158,106 @@ CONNECT/SUBSCRIBE도 같은 메시지로 거절합니다. 프론트는 이를 AU
 기동을 계속합니다. Flyway migration에 계정을 넣지 않는 이유는 비밀번호 해시가 모든 환경에 배포되기
 때문입니다. 권한 모델이 없으므로 이 계정은 일반 사용자와 같고, `prod` 프로필에는 등록되지 않습니다.
 
+## DEC-034 백엔드 패키지: 도메인 → 계층 — ACCEPTED
+`com.smartinsole.<domain>` 아래에 `controller`, `service`, `domain`, `repository`, `dto` 하위 패키지를 두어
+계층을 나눕니다(2026-09-10). 도메인에 없는 계층은 만들지 않습니다(`user`·`calibration`은 `domain`·`repository`만).
+스케줄러와 부트스트랩 러너는 `service`, 계산 규칙(`RuleBasedAnalyzer`, `PatternCatalog`)은 `analysis.domain`,
+WebSocket 설정은 `realtime.config`, STOMP 인가 인터셉터는 `realtime.security`에 둡니다. 테스트는 대상 클래스와
+같은 패키지를 따릅니다. `global`은 그대로이며, 이동은 package·import 줄만 바꾸고 코드 본문은 바꾸지 않았습니다.
+
+## DEC-035 rule-v1.3.0 좌우 신호 비율·스트라이드 시간, 계약 1.2.0 기록 요약 — ACCEPTED
+**배경.** 결과 화면은 발별 센서 share와 접촉 시간은 보여 주지만 세션 전체에서 왼발·오른발 신호가 어떤 비율로
+나뉘는지, 한 발의 걸음 주기가 얼마나 되는지는 주지 않았고, 추세 그래프를 그리려면 기록 목록 뒤에 세션마다 결과
+조회를 한 번씩 더 해야 했습니다(2026-09-10, 제품 책임자 승인).
+
+**결정.**
+1. 분석기를 `rule-v1.3.0`으로 올리고 `pressureDistribution`에 `leftLoadSharePct/rightLoadSharePct`
+   (각 발의 접촉 프레임 평균 전체합 `L`, `R`에 대해 `L/(L+R)×100`, `R/(L+R)×100`, 합 100), `gaitSummary`에
+   `leftStrideTimeMs/rightStrideTimeMs/meanStrideTimeMs`(같은 발의 연속 접촉 구간 시작-시작 간격을
+   `deviceTimeMs`로 계산한 중앙값, 평균은 둘 다 있으면 산술 평균·한쪽만 있으면 그 값)를 추가합니다.
+2. `MeasurementHistoryItem`에 최신 분석 결과의 `algorithmVersion`, `dataQualityLevel`, `symmetryIndex`, `cadence`,
+   `leftContactTimeMs`, `rightContactTimeMs`, `validStepCount`, `leftLoadSharePct`, `rightLoadSharePct`,
+   `meanStrideTimeMs`를 nullable 선택 필드로 넣어 목록 호출 한 번으로 추세를 그립니다. 값은 `analysis_results`
+   컬럼에서 조인하며 JSON을 파싱하지 않습니다(V8 `left/right_load_share_pct`, `left/right/mean_stride_time_ms`).
+3. `openapi.yaml`은 `1.1.0 → 1.2.0` 추가 전용 변경입니다. 수신기가 vendoring한 1.1.0 핀은 그대로 유효하고
+   프레임 배치·수신기 API는 바뀌지 않습니다.
+
+**null 정책(DEC-023 유지).** 새 필드는 모두 nullable이며 `required`에 넣지 않습니다. 어느 한 발이라도 접촉 구간이
+없으면 좌우 신호 비율은 둘 다 `null`(양발 센서 수가 다르면 두 값 모두 null), 발의 창이 2개 미만이면 그 발의 스트라이드는 `null`, 양발 모두 `null`이면
+평균도 `null`입니다. `rule-v1.3.0` 이전 결과와 COMPLETED가 아닌 세션의 기록 요약은 `null`이며 과거 결과를
+재계산하지 않습니다. 백엔드는 null 키를 생략하지 않고 `null` 값으로 내보냅니다.
+
+**표시 용어(DEC-013 유지).** `loadSharePct`의 화면 용어는 **좌우 신호 비율**입니다. 힘·체중·압력을 측정한
+값이 아니라 보정·평활 후 센서 신호의 상대 비율이므로 '하중', '체중 분포', '압력 비율'로 쓰지 않습니다.
+스트라이드 시간은 **스트라이드 시간(추정)**으로 표기하고 접촉 구간 기반 추정이며 임상 검증된 보행 주기가 아님을
+설명합니다. 두 지표 모두 참고 범위를 두지 않고 '정상'·'양호'·'개선' 같은 판정 문구를 붙이지 않습니다.
+`scripts/validate_contracts.py`의 "Contract 1.2 gait metric policy"가 nullable·선택·범위·중립 문구를 검사합니다.
+
+**결과.** 프론트는 1.2.0 타입을 재생성해 결과 화면과 기록 추세에 새 필드를 표시하고, 기록 화면은 세션별 결과 조회
+없이 목록 응답만으로 그래프를 그립니다. `e2e_smoke.py` 등 `rule-v1.2.0`을 고정한 검사는 `rule-v1.3.0`으로 갱신해야
+합니다. 스트라이드 간격은 전송 공백으로 창이 끊긴 경우도 포함될 수 있어 중앙값으로 영향을 줄이지만, 임상 지표로
+해석하지 않는 조건에서만 사용합니다.
+
+## DEC-036 rule-v1.4.0 IMU 정강이 움직임 요약, 계약 1.3.0 — ACCEPTED
+**배경.** 계약 1.1부터 프레임마다 IMU 원자료(`accelMg`, `gyroDps10`, `imuAvailable`)가 `pressure_frames`에 저장되지만
+rule-v1.3.0까지 어느 계층도 읽지 않았습니다. 2026-09-10 타당성 검토는 "장착 위치·축 규약이 없으면 각도를 낼 수 없다"고
+결론지었고, 2026-09-11 제품 책임자가 장착 사실을 확정했습니다: IMU(LSM6DS3TR-C, XIAO nRF52840 Sense)는 인솔 안이 아니라
+**외측 발목/정강이에 스트랩으로 고정한 보드**에 있고 인솔과 배선으로 연결되며, 장착 방향은 정해져 있지 않습니다.
+양쪽 보드는 모두 외측에 붙어 거울 대칭입니다.
+
+**결정.**
+1. 이 단계가 재는 것은 **정강이(shank) 분절**의 운동입니다. 발의 내번/외번 각도와 발 진행각은 이 장착으로 유도할 수 없으므로
+   산출하지 않고, 어떤 문구로도 주장하지 않습니다. 화면·계약 설명에는 **정강이**와 **기능 검증용**을 붙입니다.
+2. 장착 방향이 미정이므로 **세션별 자동 축 정렬**을 합니다. 사용자는 시작 후 약 2초 동안 가만히 서 있고(실시간 화면
+   카운트다운), 백엔드는 데이터에서 정지 구간을 스스로 찾으므로 이를 위한 API 변경은 없습니다.
+   기준 자세 `QUIET_STANDING` = 세션 첫 프레임부터 첫 1.0 s 이상 구간에서 모든 프레임이 `|gyro| < 10 dps`,
+   `||a|−1 g| < 0.1 g`, 양발 압력 접촉(기존 임계값); up = 정규화 평균 accel, 자이로 바이어스 = 평균 gyro.
+   폴백 `FIRST_STANCE` = 발별 처음 3개 접촉 창의 중간 입각기(30~60 %) 프레임 평균, 바이어스 0.
+   축: 발별 e = 바이어스 보정 자이로 전체의 주성분(PCA)을 up과 직교화·정규화, 유각기 프레임의 `median(gyro·e) > 0`이면
+   `e = −e`(앞으로 내딛는 회전이 e 기준 음의 회전); `ml_left = e`, `forward = ml_left × up`,
+   lateral = 왼발 `+ml_left`, 오른발 `−ml_left`.
+3. 분석기를 `rule-v1.4.0`으로 올리고 `AnalysisResultResponse.movementSummary: MovementSummary | null`을 추가합니다.
+   `MovementSummary { imuCoverage: number 0..1, referenceMethod: QUIET_STANDING | FIRST_STANCE | null,
+   left: MovementFootSummary | null, right: MovementFootSummary | null }`,
+   `MovementFootSummary { frontalTiltDeg: number −180..180 | null, sagittalRangeDeg: number ≥ 0 | null,
+   transverseRangeDeg: number ≥ 0 | null, swingPeakAngularVelocityDps: number ≥ 0 | null, windowCount: integer ≥ 0 }`.
+   - `frontalTiltDeg`(정강이 좌우 기울기(중간 입각기)): 창의 중간 입각기(30~60 %) 평균 accel 정규화 g로
+     `atan2(g·lateral, g·up)`(도), 기준 자세 대비, 창 전체 평균. + 바깥쪽(lateral), − 안쪽(medial).
+   - `sagittalRangeDeg`(입각기 정강이 전후 회전 범위): 창 안 `gyro·ml_left` 사다리꼴 누적 적분 각도의 범위, 창별 중앙값.
+   - `transverseRangeDeg`(입각기 정강이 수평 회전 범위): 같은 방식, `gyro·up` 성분.
+   - `swingPeakAngularVelocityDps`(유각기 최대 각속도): 같은 발의 연속 창 사이 `|gyro·ml_left|` 최댓값의 중앙값.
+   - `windowCount`: IMU를 사용할 수 있었던 접촉 창 수(정지 기준 자세 구간과 겹치는 창은 제외).
+   단위 g = mg/1000, °/s = dps10/10, dt = `deviceTimeMs` 차분(발별 프레임은 수신기가 unwrap한 `sequence` 순으로 정렬하므로
+   RESET에서 `deviceTimeMs`가 뒤로 가면 접촉 창을 닫고 적분 초기화). int16 포화(`|값| ≥ 32760`) 프레임은
+   해당 창에서 제외. 걸음 정의는 계속 압력 접촉 창이며 IMU는 그 창의 정강이 운동만 보충합니다.
+4. `openapi.yaml`은 `1.2.0 → 1.3.0` 추가 전용 변경입니다(`additionalProperties: false` 유지). 프레임 배치·수신기 API는
+   바뀌지 않아 수신기의 1.1.0 핀은 그대로 유효합니다. 저장은 V9 `analysis_results.movement_summary_json`(객체 전체 JSON)
+   하나이며 기록 목록 projection은 두지 않습니다.
+
+**null 정책(DEC-023 유지).** `movementSummary`는 nullable·선택 필드이며 `required`에 넣지 않습니다. 객체 전체가 `null`:
+`rule-v1.4.0` 이전 결과, IMU 프레임이 없는 세션. `left/right`가 `null`: `imuCoverage < 0.5` 또는 그 발의 기준 자세를 잡지 못한 경우
+(양발 모두 실패하면 `referenceMethod null`). 기준은 잡았지만 축 정렬을 못 하거나(자이로 회전 없음) 유각기 구간이 없어 부호를
+정할 수 없으면, 또는 사용 가능한 창이 없으면 그 발은 `windowCount 0`과 네 지표 `null`(발 객체는 유지). 과거 결과는 재계산하지 않고
+백엔드는 null 키를 생략하지 않고 `null` 값으로 내보냅니다. 임계값(정지 1.0 s/10 dps/0.1 g, 커버리지 0.5, 중간 입각기
+30~60 %, 포화 32760, 폴백 창 3개)은 `AnalysisProperties`에 두고 기존 "functional-test defaults, not clinically validated"
+플래그를 유지합니다. 구현은 결정적이어야 하며 합성 궤적 단위 테스트로 부호·null 정책을 고정합니다.
+
+**표시 용어(DEC-013 유지).** 화면 용어는 **정강이 좌우 기울기(중간 입각기)**, **입각기 정강이 전후 회전 범위**,
+**입각기 정강이 수평 회전 범위**, **유각기 최대 각속도**이며 카드 제목에 **정강이 움직임(기능 검증용)**을 붙입니다.
+발 관절 각도(내번/외번), 발 진행각, 참고 범위, '정상'·'양호'·'개선'·'악화'·'위험'·'중등도' 같은 판정·등급 문구를
+금지합니다. `scripts/validate_contracts.py`의 "Contract 1.3 movement summary policy"가 nullable·선택·타입·범위·용어를
+검사합니다.
+
+**검증 게이트.** 지그 벤치(0/±5/±10/±20°), 자동 정렬 재현성(보드를 여러 방향으로 장착), 소수 피험자 참조 계측
+(고니오미터/마커) 비교, 재장착 3회 편차로 오차(평균±SD)를 얻기 전에는 사용자 화면에 "기능 검증용" 표기 이상으로
+노출하지 않습니다. 통과 후에도 중립 문구·오차 범위 병기·등급 없음이며, 패턴 코드 승격은 별도 DEC와 검증 데이터가
+필요합니다. 단계·위험·노력 추정은 `docs/11_IMU_MOVEMENT_ROADMAP.md`에 둡니다.
+
+**결과.** 프론트는 1.3.0 타입을 재생성해 결과 화면에 정강이 움직임 카드(객체 `null`이면 카드에 미제공 안내
+"이 세션에는 IMU 데이터가 없어 움직임 분석을 제공하지 않습니다."만 표시)와 실시간 화면의 시작 후 2초 정지 카운트다운을
+추가합니다. `e2e_smoke.py` 등 `rule-v1.3.0`을 고정한 검사는 `rule-v1.4.0`으로 갱신해야 합니다.
+IMU가 없는 1.0 배치·시뮬레이터 세션은 `movementSummary null`로 기존과 같이 동작합니다.
+
 ## 구현 중 계획과 달라진 점 (2026-09-04)
 - V5 `pressure_frames` 메타 컬럼은 계획의 11개에 `flags`를 더한 12개(INSERT 26컬럼)입니다.
   `StoredPressureFrame`이 `flags`를 노출하려면 저장이 필요합니다.

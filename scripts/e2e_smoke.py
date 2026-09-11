@@ -31,7 +31,7 @@ REPOSITORY_ROOT = SCRIPT_DIR.parent
 REALTIME_SCHEMA_PATH = REPOSITORY_ROOT / "contracts" / "realtime-message.schema.json"
 OPENAPI_PATH = REPOSITORY_ROOT / "contracts" / "openapi.yaml"
 ADC_MAX = 4095
-ALGORITHM_VERSION = "rule-v1.2.0"
+ALGORITHM_VERSION = "rule-v1.4.0"
 
 
 @dataclass(frozen=True)
@@ -726,7 +726,7 @@ def validate_analysis_result(result: dict[str, Any]) -> None:
         )
     summary = result.get("observationSummary")
     if not isinstance(summary, list) or len(summary) != 6:
-        raise RuntimeError("rule-v1.2.0 result lacks the six-entry observationSummary")
+        raise RuntimeError(f"{ALGORITHM_VERSION} result lacks the six-entry observationSummary")
     allowed_codes = {item.get("code") for item in summary if isinstance(item, dict)}
     for pattern in result.get("patterns", []):
         if not isinstance(pattern, dict) or pattern.get("code") not in allowed_codes:
@@ -747,6 +747,26 @@ def validate_analysis_result(result: dict[str, Any]) -> None:
     )
     if not isinstance(distribution, dict) or any(distribution.get(key) is None for key in required_metrics):
         raise RuntimeError(f"{ALGORITHM_VERSION} normal fixture result lacks expanded pressure metrics")
+    # rule-v1.3.0 fields are nullable (no contact window / fewer than two windows) but always present.
+    for key in ("leftStrideTimeMs", "rightStrideTimeMs", "meanStrideTimeMs"):
+        if key not in gait or not (gait[key] is None or isinstance(gait[key], (int, float))):
+            raise RuntimeError(f"{ALGORITHM_VERSION} result lacks gaitSummary.{key}")
+    load_share = [distribution.get(key, "missing") for key in ("leftLoadSharePct", "rightLoadSharePct")]
+    if "missing" in load_share or (load_share[0] is None) != (load_share[1] is None):
+        raise RuntimeError(f"{ALGORITHM_VERSION} result lacks a consistent left/right load share pair")
+    if load_share[0] is not None and abs(float(load_share[0]) + float(load_share[1]) - 100.0) > 1e-6:
+        raise RuntimeError(f"{ALGORITHM_VERSION} load share pair does not sum to 100")
+    # rule-v1.4.0: movementSummary is always present; it is null for fixtures without IMU samples and an
+    # object (imuCoverage 0..1, nullable referenceMethod/left/right) otherwise. The schema check above
+    # validates the object shape; here only the key presence and the null policy are pinned.
+    if "movementSummary" not in result:
+        raise RuntimeError(f"{ALGORITHM_VERSION} result lacks the movementSummary key")
+    movement = result["movementSummary"]
+    if movement is not None:
+        if not isinstance(movement, dict) or not (0.0 <= float(movement.get("imuCoverage", -1)) <= 1.0):
+            raise RuntimeError(f"{ALGORITHM_VERSION} movementSummary lacks a 0..1 imuCoverage")
+        if movement.get("referenceMethod") is None and (movement.get("left") or movement.get("right")):
+            raise RuntimeError(f"{ALGORITHM_VERSION} movementSummary has foot values without a reference")
 
 
 def main() -> int:

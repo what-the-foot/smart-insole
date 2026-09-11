@@ -2,24 +2,24 @@ package com.smartinsole;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.smartinsole.analysis.AnalysisPattern;
-import com.smartinsole.analysis.AnalysisPatternRepository;
-import com.smartinsole.analysis.AnalysisResultRepository;
-import com.smartinsole.auth.AuthDtos.SignupRequest;
-import com.smartinsole.auth.AuthService;
-import com.smartinsole.device.DeviceDtos.DeviceResponse;
-import com.smartinsole.device.DeviceDtos.RegisterDeviceRequest;
-import com.smartinsole.device.DeviceService;
+import com.smartinsole.analysis.domain.AnalysisPattern;
+import com.smartinsole.analysis.repository.AnalysisPatternRepository;
+import com.smartinsole.analysis.repository.AnalysisResultRepository;
+import com.smartinsole.auth.dto.AuthDtos.SignupRequest;
+import com.smartinsole.auth.service.AuthService;
+import com.smartinsole.device.dto.DeviceDtos.DeviceResponse;
+import com.smartinsole.device.dto.DeviceDtos.RegisterDeviceRequest;
+import com.smartinsole.device.service.DeviceService;
 import com.smartinsole.global.common.DomainTypes.FootSide;
 import com.smartinsole.global.common.DomainTypes.MeasurementStatus;
-import com.smartinsole.measurement.IngestionDtos.FrameBatchRequest;
-import com.smartinsole.measurement.IngestionDtos.PressureFrameInput;
-import com.smartinsole.measurement.MeasurementDtos.CreateMeasurementSessionRequest;
-import com.smartinsole.measurement.MeasurementQualityRepository;
-import com.smartinsole.measurement.MeasurementService;
-import com.smartinsole.measurement.MeasurementSessionRepository;
-import com.smartinsole.measurement.PressureFrameIngestionService;
-import com.smartinsole.measurement.PressureFrameRepository;
+import com.smartinsole.measurement.dto.IngestionDtos.FrameBatchRequest;
+import com.smartinsole.measurement.dto.IngestionDtos.PressureFrameInput;
+import com.smartinsole.measurement.dto.MeasurementDtos.CreateMeasurementSessionRequest;
+import com.smartinsole.measurement.repository.MeasurementQualityRepository;
+import com.smartinsole.measurement.service.MeasurementService;
+import com.smartinsole.measurement.repository.MeasurementSessionRepository;
+import com.smartinsole.measurement.service.PressureFrameIngestionService;
+import com.smartinsole.measurement.repository.PressureFrameRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -74,7 +74,7 @@ class MySqlIntegrationTest {
 
     @Test
     void validatesSchemaBatchIdempotencyWindowQueriesAndHistoryOnRealMySql() throws Exception {
-        assertThat(flyway.info().applied()).hasSizeGreaterThanOrEqualTo(7);
+        assertThat(flyway.info().applied()).hasSizeGreaterThanOrEqualTo(9);
         UUID userId = auth.signup(new SignupRequest("mysql@example.com", "password123", "MySQL Test")).userId();
         DeviceResponse left = devices.register(userId, device("MYSQL-L-001", FootSide.LEFT));
         DeviceResponse right = devices.register(userId, device("MYSQL-R-001", FootSide.RIGHT));
@@ -120,14 +120,31 @@ class MySqlIntegrationTest {
             Thread.sleep(50);
         }
         assertThat(sessions.findById(sessionId).orElseThrow().getStatus()).isEqualTo(MeasurementStatus.COMPLETED);
+        var storedResult = results.findBySessionIdAndAlgorithmVersion(sessionId, "rule-v1.4.0").orElseThrow();
+        // rule-v1.4.0 (V9): only the two 1.1 frames carry IMU samples, so the summary is stored with the
+        // coverage but without a reference or per-foot values.
+        assertThat(storedResult.getMovementSummaryJson()).isNotNull()
+                .contains("\"referenceMethod\":null").contains("\"left\":null").contains("\"right\":null");
         List<AnalysisPattern> storedPatterns = patterns.findAllByAnalysisResultIdOrderBySortOrder(
-                results.findBySessionIdAndAlgorithmVersion(sessionId, "rule-v1.2.0").orElseThrow().getId());
+                storedResult.getId());
         assertThat(storedPatterns).isNotEmpty();
         String patternCode = storedPatterns.getFirst().getPatternCode();
         var history = measurements.list(userId, 0, 20, MeasurementStatus.COMPLETED,
                 Instant.now().minusSeconds(3600), Instant.now().plusSeconds(3600), 0, patternCode);
         assertThat(history.totalElements()).isEqualTo(1);
-        assertThat(history.items().getFirst().primaryPatternCode()).isEqualTo(patternCode);
+        var item = history.items().getFirst();
+        assertThat(item.primaryPatternCode()).isEqualTo(patternCode);
+        // Contract 1.2.0 summary metrics come from the latest analysis_results row (V8 columns) on real MySQL.
+        assertThat(item.algorithmVersion()).isEqualTo("rule-v1.4.0");
+        assertThat(item.dataQualityLevel()).isEqualTo(storedResult.getQualityLevel());
+        assertThat(item.symmetryIndex()).isEqualTo(storedResult.getSymmetryIndex());
+        assertThat(item.cadence()).isEqualTo(storedResult.getCadence());
+        assertThat(item.leftContactTimeMs()).isEqualTo(storedResult.getLeftContactTimeMs());
+        assertThat(item.rightContactTimeMs()).isEqualTo(storedResult.getRightContactTimeMs());
+        assertThat(item.validStepCount()).isEqualTo(storedResult.getValidStepCount());
+        assertThat(item.leftLoadSharePct()).isEqualTo(storedResult.getLeftLoadSharePct());
+        assertThat(item.rightLoadSharePct()).isEqualTo(storedResult.getRightLoadSharePct());
+        assertThat(item.meanStrideTimeMs()).isEqualTo(storedResult.getMeanStrideTimeMs());
     }
 
     private static RegisterDeviceRequest device(String serial, FootSide side) {

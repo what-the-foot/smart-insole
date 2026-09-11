@@ -4,7 +4,8 @@ import { formatRemaining, useSessionExpiry } from '../features/auth/useSessionEx
 import { Icon } from './Icon';
 
 // 만료 5분 전부터 표시. 만료 순간에는 AuthProvider가 세션을 정리해 ProtectedRoute가 로그인 화면으로 보낸다.
-export function SessionExpiryBanner() {
+// inert: 모바일 드로어가 열린 동안 AppShell이 배너를 포커스 순서에서 제외할 때 사용한다.
+export function SessionExpiryBanner({ inert = false }: { inert?: boolean }) {
   const expiry = useSessionExpiry();
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -12,7 +13,7 @@ export function SessionExpiryBanner() {
 
   return (
     <>
-      <div className="session-expiry-banner" role="status">
+      <div className="session-expiry-banner" inert={inert} role="status">
         <Icon name="clock" />
         <p>
           <strong>로그인 세션이 {formatRemaining(expiry.remainingMs)} 후 만료됩니다.</strong>

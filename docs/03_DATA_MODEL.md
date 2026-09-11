@@ -160,7 +160,7 @@ INDEX(status, updated_at)
 | receiver_received_at TIMESTAMP(6) | (1.1) 프레임별 수신기 수신 시각, 좌우 정렬 기준 |
 | data_mode | (1.1) RAW/FILTERED |
 | calibrated, imu_available | (1.1) BOOLEAN |
-| accel_x/y/z_mg, gyro_x/y/z_dps10 | (1.1) int16 IMU |
+| accel_x/y/z_mg, gyro_x/y/z_dps10 | (1.1) int16 IMU(mg ±8 g, 0.1 °/s ±500 dps). rule-v1.4.0 분석기가 읽음; 보드는 인솔이 아닌 외측 발목/정강이 장착(DEC-036) |
 | flags | (1.1, v2) bit0 FSR_ERROR, bit1 IMU_ERROR, bit2 BATTERY_LOW |
 
 ```text
@@ -203,7 +203,7 @@ INDEX(device_id, received_at)
 | id | UUID |
 | session_id | 세션 |
 | status | PENDING/RUNNING/COMPLETED/FAILED |
-| algorithm_version | 버전 (현재 `rule-v1.2.0`) |
+| algorithm_version | 버전 (현재 `rule-v1.4.0`) |
 | attempt_count | 시도 |
 | error_code/message | 실패 |
 | created/started/completed_at | 시각 |
@@ -225,9 +225,12 @@ UNIQUE(session_id, algorithm_version)
 | left/right_contact_time_ms | 접촉 시간 |
 | symmetry_index | 좌우 지수 |
 | valid_step_count | 유효 걸음(창) 수, rule-v1.1.0 이전 NULL |
-| pressure_distribution_json | 영역 비율, 최대 압력, 평균 CoP, 센서 share |
+| pressure_distribution_json | 영역 비율, 최대 압력, 평균 CoP, 센서 share, 좌우 신호 비율(rule-v1.3.0) |
 | quality_flags_json | 플래그 |
 | observation_summary_json | (rule-v1.2.0) 6종 코드의 관찰 단계, 이전 버전 NULL |
+| left/right_load_share_pct | (rule-v1.3.0, V8) 좌우 신호 비율 L/(L+R)×100, R/(L+R)×100; 이전 버전, 한 발 접촉 구간 없음, 양발 센서 수 다름 NULL |
+| left/right/mean_stride_time_ms | (rule-v1.3.0, V8) 같은 발 연속 접촉 구간 시작-시작 간격 중앙값(ms), 평균은 양발 산술 평균·한쪽만 있으면 그 값; 이전 버전 또는 창 2개 미만 NULL |
+| movement_summary_json | (rule-v1.4.0, V9) `MovementSummary` 객체 전체 JSON(`imuCoverage`, `referenceMethod`, `left`, `right`: 정강이 움직임 요약, 기능 검증용). 이전 버전·IMU 프레임 없는 세션 NULL. 기록 목록 projection 없음 |
 | created_at | 생성 |
 
 ```text
@@ -284,6 +287,8 @@ V4__add_valid_step_count.sql
 V5__add_frame_metadata_and_receiver_columns.sql   # 1.1 프레임 메타, adc_max(백필 65535), 배터리, receiver 상태, first sequence
 V6__seed_layout_s01s08.sql                        # layout-s01s08-v1 seed, layout-v1/-6 비활성
 V7__add_observation_fields.sql                    # 관찰 단계 컬럼, observation_summary_json
+V8__add_gait_metrics.sql                          # rule-v1.3.0 left/right_load_share_pct, left/right/mean_stride_time_ms (기록 projection용 스칼라)
+V9__add_movement_summary.sql                      # rule-v1.4.0 movement_summary_json (IMU 정강이 움직임 요약 JSON)
 ```
 
 적용된 migration을 수정하지 않고 새 버전을 추가합니다. `ddl-auto: validate`이므로 엔티티와 migration을 함께 바꿉니다. 65535 리터럴은 V5 SQL에만 존재하고 자바 코드에는 없습니다.

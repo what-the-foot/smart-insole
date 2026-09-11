@@ -22,7 +22,10 @@ export function SessionIdCopy({ sessionId }: { sessionId: string }) {
   return (
     <div className="session-id-copy">
       <div>
-        <span>세션 ID (수신기 CLI --session-id)</span>
+        <span className="session-id-copy__label">
+          <Icon name="link" />
+          세션 ID (수신기 CLI --session-id)
+        </span>
         <code>{sessionId}</code>
       </div>
       <button

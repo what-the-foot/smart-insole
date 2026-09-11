@@ -63,4 +63,25 @@ describe('FootDeviceSelector', () => {
     expect(screen.getByRole('radio', { name: /왼발 인솔/ })).toBeDisabled();
     expect(screen.getByText('활성 보정이 없는 인솔은 선택할 수 없습니다.')).toBeInTheDocument();
   });
+
+  it('선택한 인솔을 요약 문장으로 보여주고 시리얼·배치 버전을 함께 표시한다', () => {
+    const leftDevice = devices[0];
+    if (!leftDevice) throw new Error('왼발 테스트 기기가 필요합니다.');
+    render(
+      <FootDeviceSelector
+        devices={devices}
+        onChange={vi.fn()}
+        selectedId={leftDevice.deviceId}
+        side="LEFT"
+      />,
+    );
+
+    expect(screen.getByRole('radio', { name: /왼발 인솔/ })).toBeChecked();
+    expect(screen.getByText('왼발 인솔 선택됨 · 왼발 인솔')).toBeInTheDocument();
+    expect(screen.getByText('INSOLE-L-001')).toBeInTheDocument();
+    expect(screen.getByText('배치 layout-v1')).toBeInTheDocument();
+    expect(
+      screen.getByText('기능 검증용 기본 보정은 개인 맞춤 보정을 의미하지 않습니다.'),
+    ).toBeInTheDocument();
+  });
 });

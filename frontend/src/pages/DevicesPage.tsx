@@ -2,7 +2,7 @@ import { useState, type SyntheticEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { deviceApi } from '../api/services';
 import { queryKeys, useDevices } from '../api/queries';
-import type { FootSide, RegisterDeviceRequest } from '../api/types';
+import type { DeviceResponse, FootSide, RegisterDeviceRequest } from '../api/types';
 import { DeviceCard } from '../components/DeviceCard';
 import { Icon } from '../components/Icon';
 import { ErrorPanel, PageHeader, Spinner, StatePanel } from '../components/StatusUi';
@@ -22,6 +22,15 @@ const initialForm: RegisterDeviceRequest = {
   sensorLayoutVersion: DEFAULT_EIGHT_SENSOR_LAYOUT_VERSION,
   firmwareVersion: '0.2.0',
   adcMax: 4095,
+};
+
+// 발별 등록 요약. 측정에는 활성 보정이 있는 왼발·오른발 인솔이 한 개씩 필요하다.
+const sideSummary = (devices: readonly DeviceResponse[], side: FootSide) => {
+  const list = devices.filter((device) => device.footSide === side);
+  const ready = list.filter(
+    (device) => device.status === 'ACTIVE' && Boolean(device.activeCalibrationVersion),
+  ).length;
+  return { total: list.length, ready };
 };
 
 export function DevicesPage() {
@@ -58,14 +67,22 @@ export function DevicesPage() {
     register.mutate(form);
   };
 
+  const left = devices.data ? sideSummary(devices.data, 'LEFT') : null;
+  const right = devices.data ? sideSummary(devices.data, 'RIGHT') : null;
+
   return (
-    <div className="page-stack">
+    <div className="page-stack devices-page">
       <PageHeader
         eyebrow="DEVICE MANAGEMENT"
         title="내 스마트 인솔"
         description="기기의 방향과 센서 배치를 확인하고 측정을 준비하세요."
         action={
-          <button className="button" onClick={() => setShowForm((value) => !value)}>
+          <button
+            aria-expanded={showForm}
+            className="button"
+            onClick={() => setShowForm((value) => !value)}
+            type="button"
+          >
             <Icon name={showForm ? 'x' : 'plus'} />
             {showForm ? '닫기' : '인솔 등록'}
           </button>
@@ -84,6 +101,10 @@ export function DevicesPage() {
             <div>
               <p className="eyebrow">NEW DEVICE</p>
               <h2 id="register-device-title">인솔 등록</h2>
+              <p>
+                왼발(LEFT)과 오른발(RIGHT) 인솔을 각각 등록합니다. 시리얼 번호는 기기 라벨을
+                참고하세요.
+              </p>
             </div>
           </div>
           {register.isError ? (
@@ -183,7 +204,11 @@ export function DevicesPage() {
         </section>
       ) : null}
 
-      {devices.isPending ? <Spinner label="인솔 목록 불러오는 중" /> : null}
+      {devices.isPending ? (
+        <div className="centered-status">
+          <Spinner label="인솔 목록 불러오는 중" />
+        </div>
+      ) : null}
       {devices.isError ? (
         <ErrorPanel error={devices.error} retry={() => void devices.refetch()} />
       ) : null}
@@ -193,18 +218,43 @@ export function DevicesPage() {
           title="등록된 인솔이 없어요"
           description="왼발과 오른발 인솔을 각각 등록해 주세요."
           action={
-            <button className="button" onClick={() => setShowForm(true)}>
+            <button className="button" onClick={() => setShowForm(true)} type="button">
               <Icon name="plus" />첫 인솔 등록
             </button>
           }
         />
       ) : null}
-      {devices.data?.length ? (
-        <section aria-label="등록된 인솔" className="device-grid">
-          {devices.data.map((device) => (
-            <DeviceCard device={device} key={device.deviceId} />
-          ))}
-        </section>
+      {devices.data?.length && left && right ? (
+        <>
+          <div aria-label="발별 등록 요약" className="device-summary" role="group">
+            <span className="device-summary__item">
+              <span aria-hidden="true" className="device-side device-side--left">
+                L
+              </span>
+              <span>
+                <strong>왼발 {left.total}대</strong>
+                <small>측정 가능 {left.ready}대</small>
+              </span>
+            </span>
+            <span className="device-summary__item">
+              <span aria-hidden="true" className="device-side device-side--right">
+                R
+              </span>
+              <span>
+                <strong>오른발 {right.total}대</strong>
+                <small>측정 가능 {right.ready}대</small>
+              </span>
+            </span>
+            <span className="device-summary__hint">
+              측정에는 활성 보정이 있는 왼발·오른발 인솔이 한 개씩 필요합니다.
+            </span>
+          </div>
+          <section aria-label="등록된 인솔" className="device-grid">
+            {devices.data.map((device) => (
+              <DeviceCard device={device} key={device.deviceId} />
+            ))}
+          </section>
+        </>
       ) : null}
     </div>
   );

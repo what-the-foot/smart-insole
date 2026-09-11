@@ -2,7 +2,7 @@
 
 ## 계약 원칙
 
-- REST 단일 기준: `contracts/openapi.yaml` (현재 `1.1.0`)
+- REST 단일 기준: `contracts/openapi.yaml` (현재 `1.3.0`, 1.2.0 대비 추가 전용 변경)
 - 실시간 단일 기준: `contracts/realtime-message.schema.json`
 - BLE 와이어 기준은 펌웨어 저장소 `docs/ble-packet-v1.md`이며, 수신기는 이 저장소의 openapi.yaml을 SHA 핀으로 vendoring합니다.
 
@@ -362,22 +362,26 @@ STOMP CONNECT에서 JWT를 전달하고 구독 시 소유권을 검사합니다.
 }
 ```
 
-완료 결과(`rule-v1.2.0`):
+완료 결과(`rule-v1.4.0`, 계약 1.3.0):
 
 ```json
 {
   "sessionId": "5803f871-9fca-4a7f-a2c7-9b567a92a6cf",
   "status": "COMPLETED",
-  "algorithmVersion": "rule-v1.2.0",
+  "algorithmVersion": "rule-v1.4.0",
   "dataQuality": {"score": 92, "level": "GOOD", "missingFrameRate": 0.003, "flags": []},
-  "gaitSummary": {"validStepCount": 21, "cadence": 108.2, "leftContactTimeMs": 642.0, "rightContactTimeMs": 608.0, "symmetryIndex": 5.3},
+  "gaitSummary": {
+    "validStepCount": 21, "cadence": 108.2, "leftContactTimeMs": 642.0, "rightContactTimeMs": 608.0, "symmetryIndex": 5.3,
+    "leftStrideTimeMs": 1120.0, "rightStrideTimeMs": 1090.0, "meanStrideTimeMs": 1105.0
+  },
   "pressureDistribution": {
     "leftMedialRatio": 0.61, "leftLateralRatio": 0.39, "rightMedialRatio": 0.58, "rightLateralRatio": 0.42,
     "leftHeelRatio": 0.35, "rightHeelRatio": 0.34, "leftMidfootRatio": 0.25, "rightMidfootRatio": 0.26,
     "leftForefootRatio": 0.40, "rightForefootRatio": 0.40, "leftPeakPressure": 88.4, "rightPeakPressure": 91.2,
     "leftMeanCoP": {"x": 0.42, "y": 0.67}, "rightMeanCoP": null,
     "leftSensorSharePct": [18.2, 16.9, 7.1, 6.4, 14.8, 13.9, 12.7, 10.0],
-    "rightSensorSharePct": [17.5, 16.4, 7.3, 6.6, 15.1, 14.2, 13.0, 9.9]
+    "rightSensorSharePct": [17.5, 16.4, 7.3, 6.6, 15.1, 14.2, 13.0, 9.9],
+    "leftLoadSharePct": 51.8, "rightLoadSharePct": 48.2
   },
   "patterns": [
     {
@@ -396,6 +400,11 @@ STOMP CONNECT에서 JWT를 전달하고 구독 시 소유권을 검사합니다.
     {"code": "FOREFOOT_LOAD_TENDENCY", "observationLevel": "NOT_OBSERVED", "occurrenceRate": 0.1, "observedCount": 4, "windowCount": 42},
     {"code": "REARFOOT_LOAD_TENDENCY", "observationLevel": "NOT_OBSERVED", "occurrenceRate": 0.0, "observedCount": 0, "windowCount": 42}
   ],
+  "movementSummary": {
+    "imuCoverage": 0.98, "referenceMethod": "QUIET_STANDING",
+    "left": {"frontalTiltDeg": -2.4, "sagittalRangeDeg": 38.5, "transverseRangeDeg": 9.1, "swingPeakAngularVelocityDps": 312.0, "windowCount": 19},
+    "right": {"frontalTiltDeg": 1.1, "sagittalRangeDeg": 40.2, "transverseRangeDeg": 8.4, "swingPeakAngularVelocityDps": 305.5, "windowCount": 20}
+  },
   "recommendations": [
     {"code": "ANKLE_STABILITY_BASIC", "title": "기본 발목 안정화 운동", "summary": "균형 유지와 발목 주변 근육 사용을 돕는 기초 운동입니다.", "durationMinutes": 10}
   ],
@@ -408,8 +417,42 @@ STOMP CONNECT에서 JWT를 전달하고 구독 시 소유권을 검사합니다.
 - `occurrenceRate = observedCount / windowCount`. `partial-observation-rate`(0.20) 이상이면 `PARTIALLY_OBSERVED`, `repeated-observation-rate`(0.60) 이상이면 `REPEATEDLY_OBSERVED`, 창이 `min-observation-windows`(4) 미만이면 항상 `NOT_OBSERVED`. 창별 임계값: medial/lateral 0.60, forefoot 0.60, rearfoot 0.55, hallux share 5%, asymmetry 10%. 모두 임상 근거 없는 제안값이며 `app.analysis.*`로 설정합니다.
 - `patterns`에는 `PARTIALLY_OBSERVED`/`REPEATEDLY_OBSERVED`만 들어가며(REPEATEDLY→CAUTION, PARTIALLY→INFO, 강한 순), `observationSummary`는 6종 코드 전체를 담습니다. 코드 집합은 정확히 `MEDIAL_LOAD_TENDENCY, LATERAL_LOAD_TENDENCY, LEFT_RIGHT_ASYMMETRY, LOW_HALLUX_SIGNAL, FOREFOOT_LOAD_TENDENCY, REARFOOT_LOAD_TENDENCY`입니다. `HIGH_MIDFOOT_LOAD`/`SHORT_CONTACT_TIME`은 제거되었고 `LOW_DATA_QUALITY`는 `dataQuality.flags`로만 노출되며 `REMEASURE_GUIDE`는 품질 점수 < 60일 때 추천됩니다.
 - `leftSensorSharePct/rightSensorSharePct`는 접촉 프레임 평균의 센서별 share(센서/전체합×100, 레이아웃 index 순, 합 100)이며 접촉 프레임이 없으면 `null`입니다.
+- (`rule-v1.3.0`) `leftLoadSharePct/rightLoadSharePct` — 표시 용어 **좌우 신호 비율**. 각 발의 접촉 프레임 평균 전체합(보정·평활 후 0~100 스케일 센서 값의 합)을 `L`, `R`이라 할 때 `L/(L+R)×100`, `R/(L+R)×100`이며 합은 100입니다. 어느 한 발이라도 접촉 구간(유효 걸음 창)이 없으면 두 값 모두 `null`입니다. 양발 센서 수가 다르면(예: 8센서·6센서 조합) 원본 전체합을 그대로 비교할 수 없으므로 두 값 모두 `null`입니다. 이 값은 힘·체중·압력이 아니라 상대적인 센서 신호 비율이므로 화면에서 '하중', '체중 분포', '압력 비율'로 표기하지 않습니다.
+- (`rule-v1.3.0`) `leftStrideTimeMs/rightStrideTimeMs/meanStrideTimeMs` — 표시 용어 **스트라이드 시간(추정)**. 스트라이드 = 같은 발의 연속 접촉 구간(창) 시작-시작 간격을 `deviceTimeMs`로 계산한 값이며, 발별 값은 그 간격들의 중앙값(median)입니다. 발의 창이 2개 미만이면 그 발은 `null`, `meanStrideTimeMs`는 두 값이 모두 있으면 `(left+right)/2`, 한쪽만 있으면 그 값, 둘 다 `null`이면 `null`입니다. 접촉 구간 기반 추정값이며 임상적으로 검증된 보행 주기(gait cycle) 측정이 아니므로 참고 범위나 '정상'·'양호'·'개선' 같은 판정 문구를 붙이지 않습니다.
 - `validStepCount`는 분석에 실제 사용된 접촉 이벤트 수입니다. 전족부 비율은 `FOREFOOT`과 `TOE` 영역의 합이며, `peakPressure`는 세션 adcMax 기준 0~100 센서 값의 최댓값, `meanCoP`는 압력 가중 0~1 평균 좌표입니다.
-- 이전 알고리즘 버전 결과는 불변 기록으로 유지하고 재해석하지 않습니다. `rule-v1.2.0` 이전 결과의 `observationSummary`, 패턴의 `observationLevel/occurrenceRate/observedCount/windowCount`, `sensorSharePct`, `rule-v1.1.0` 이전의 `validStepCount`·중족부/전족부 비율·최대 압력은 `null`로 반환하여 실제 0과 구분합니다.
+- 이전 알고리즘 버전 결과는 불변 기록으로 유지하고 재해석하지 않습니다. `rule-v1.4.0` 이전 결과와 IMU 프레임이 없는 세션의 `movementSummary`, `rule-v1.3.0` 이전 결과의 `leftLoadSharePct/rightLoadSharePct`·`leftStrideTimeMs/rightStrideTimeMs/meanStrideTimeMs`, `rule-v1.2.0` 이전 결과의 `observationSummary`, 패턴의 `observationLevel/occurrenceRate/observedCount/windowCount`, `sensorSharePct`, `rule-v1.1.0` 이전의 `validStepCount`·중족부/전족부 비율·최대 압력은 `null`로 반환하여 실제 0과 구분합니다(DEC-023, DEC-035, DEC-036). 백엔드는 null 키를 생략하지 않고 `null` 값으로 내보냅니다.
+
+### 정강이 움직임 요약 `movementSummary` (rule-v1.4.0, 계약 1.3.0)
+
+IMU(LSM6DS3TR-C)는 인솔 안이 아니라 **외측 발목/정강이에 스트랩으로 고정한 보드**에 있으므로(DEC-036) 이 요약은
+**정강이 분절**의 운동만 나타냅니다. 발 관절 각도(내번/외번)나 발 진행각은 이 장착으로 유도할 수 없어 산출·표시하지
+않습니다. 화면에는 항상 **정강이**와 **기능 검증용** 표기를 붙이고 참고 범위·판정 문구를 두지 않습니다.
+보드 장착 방향은 세션마다 자동 정렬하며, 사용자는 시작 후 약 2초 동안 가만히 서 있습니다(실시간 화면 카운트다운).
+백엔드가 데이터에서 정지 구간을 찾으므로 이를 위한 API 변경은 없습니다.
+
+| 필드 | 타입 | 화면 용어 | 정의 | null 조건 |
+|---|---|---|---|---|
+| `movementSummary` | `MovementSummary` | 정강이 움직임(기능 검증용) | 아래 객체 | `rule-v1.4.0` 이전 결과, IMU 프레임 없는 세션 |
+| `imuCoverage` | number 0..1 | — | 양발 저장 프레임 중 `imuAvailable=true`이고 `accelMg`·`gyroDps10`이 모두 있는 비율 | 없음 |
+| `referenceMethod` | `QUIET_STANDING` \| `FIRST_STANCE` \| null | — | 기준 자세를 잡은 방법. `QUIET_STANDING` = 첫 프레임부터 첫 1.0 s 이상 정지 구간(`\|gyro\| < 10 dps`, `\|\|a\|−1 g\| < 0.1 g`, 양발 접촉), `FIRST_STANCE` = 발별 처음 3개 접촉 창의 중간 입각기(30~60 %) 평균(바이어스 0) | 양발 모두 기준 실패(축 정렬 실패는 기준 방법을 바꾸지 않음) |
+| `left` / `right` | `MovementFootSummary` \| null | 왼발/오른발 쪽 정강이 | 아래 5개 필드 | `imuCoverage < 0.5` 또는 그 발의 기준 실패(축 정렬 실패·유각기 없음은 null이 아니라 `windowCount 0`) |
+| `frontalTiltDeg` | number −180..180 \| null | 정강이 좌우 기울기(중간 입각기) | 창의 중간 입각기(30~60 %) 평균 가속도 정규화 g로 `atan2(g·lateral, g·up)`(도), 기준 자세 대비, 창 전체 평균. + 바깥쪽(lateral), − 안쪽(medial) | 사용 가능한 창 없음 |
+| `sagittalRangeDeg` | number ≥ 0 \| null | 입각기 정강이 전후 회전 범위 | 창 안에서 `gyro·ml_left`를 사다리꼴 누적 적분한 각도 시계열 범위(도)의 창별 중앙값 | 창 없음 |
+| `transverseRangeDeg` | number ≥ 0 \| null | 입각기 정강이 수평 회전 범위 | 같은 방식, `gyro·up` 성분 | 창 없음 |
+| `swingPeakAngularVelocityDps` | number ≥ 0 \| null | 유각기 최대 각속도 | 같은 발의 연속 창 사이(유각기) `\|gyro·ml_left\|` 최댓값(°/s)의 구간별 중앙값 | 유각기 구간 없음 |
+| `windowCount` | integer ≥ 0 | — | IMU를 사용할 수 있었던 접촉 창(유효 걸음) 수. 정지 기준 자세 구간과 겹치는 창은 제외 | 없음(0이면 위 4개 null; 축 정렬 실패·유각기 없음 포함) |
+
+- 단위: g = mg/1000, °/s = dps10/10, dt = `deviceTimeMs` 차분. 발별 프레임은 수신기가 unwrap한 `sequence` 순으로 정렬하므로
+  수신기 RESET(`deviceTimeMs` 역행)은 음의 dt로 나타나며, 그 지점에서 접촉 창을 닫고 적분 상태를 초기화합니다.
+  int16 포화(`|값| ≥ 32760`) 프레임은 해당 창에서 제외합니다.
+- 축 정렬(발별): e = 바이어스 보정 자이로 전체의 주성분(PCA)을 up과 직교화·정규화, 유각기 프레임의 `median(gyro·e) > 0`이면
+  `e = −e`. `ml_left = e`, `forward = ml_left × up`, lateral = 왼발 `+ml_left`, 오른발 `−ml_left`(좌우 보드 거울 대칭).
+- 창(window) = 압력 접촉 구간(유효 걸음). 걸음 정의는 계속 압력이 담당하고 IMU는 그 창의 정강이 운동만 보충합니다.
+- 임계값(정지 1.0 s/10 dps/0.1 g, 커버리지 0.5, 중간 입각기 30~60 %, 포화 32760, 폴백 창 3개)은 `app.analysis.*`에 두며
+  임상 근거 없는 기능 검증용 값입니다. 참조 계측 대비 오차를 얻기 전에는 사용자 화면에 "기능 검증용" 표기를 붙인 카드 이상으로 노출하지 않습니다(참고 범위·판정 문구 없음)
+  (`docs/11_IMU_MOVEMENT_ROADMAP.md` 검증 게이트).
+- `scripts/validate_contracts.py`의 "Contract 1.3 movement summary policy"가 nullable·선택·타입·범위·용어(정강이, 기능 검증용;
+  발 관절·판정 용어 금지)를 검사합니다.
 
 ## 추천 운동 상세
 
@@ -430,19 +473,85 @@ GET /api/v1/measurement-sessions?page=0&size=20&status=COMPLETED&from=2026-09-01
 목록 항목의 `primaryPatternCode`는 최신 분석 결과에서 가장 먼저 정렬된 주요 패턴이며,
 패턴이 없거나 분석 전이면 `null`입니다. `patternCode`는 저장된 패턴(PARTIALLY/REPEATEDLY)만 매칭합니다.
 
+계약 1.2.0부터 `MeasurementHistoryItem`은 세션의 **최신 분석 결과** 요약 지표를 함께 담아 목록 호출 한 번으로
+추세 그래프를 그릴 수 있습니다. 추가 필드는 모두 nullable·선택이며 `analysis_results`의 컬럼에서 그대로 읍니다(JSON 파싱 없음).
+
+| 필드 | 타입 | 출처 | null 조건 |
+|---|---|---|---|
+| `algorithmVersion` | string | `analysis_results.algorithm_version` | COMPLETED가 아니거나 결과 없음 |
+| `dataQualityLevel` | `QualityLevel` | `analysis_results.quality_level` | 결과 없음 |
+| `symmetryIndex` | number ≥ 0 | `symmetry_index` | 결과 없음 |
+| `cadence` | number ≥ 0 | `cadence` | 결과 없음 |
+| `leftContactTimeMs` / `rightContactTimeMs` | number ≥ 0 | `left/right_contact_time_ms` | 결과 없음 |
+| `validStepCount` | integer ≥ 0 | `valid_step_count` | 결과 없음 또는 `rule-v1.1.0` 이전 |
+| `leftLoadSharePct` / `rightLoadSharePct` | number 0..100 | `left/right_load_share_pct` (V8) | 결과 없음, `rule-v1.3.0` 이전, 한 발 접촉 구간 없음, 또는 양발 센서 수 다름 |
+| `meanStrideTimeMs` | number ≥ 0 | `mean_stride_time_ms` (V8) | 결과 없음, `rule-v1.3.0` 이전, 또는 양발 모두 창 2개 미만 |
+
+`dataQualityScore`는 기존처럼 세션 컬럼에서 오며, 요약 지표는 `primaryPatternCode`와 같은 "최신 결과" 규칙을 따릅니다.
+표시 용어는 결과 화면과 같습니다(좌우 신호 비율, 스트라이드 시간(추정)). 참고 범위·판정 문구는 붙이지 않습니다.
+
 ```json
 {
-  "items": [],
+  "items": [
+    {
+      "sessionId": "5803f871-9fca-4a7f-a2c7-9b567a92a6cf",
+      "status": "COMPLETED",
+      "leftDeviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "rightDeviceId": "0f1d3c3e-3b1c-4f4e-9f2a-6f1b1a2c3d4e",
+      "sampleRateHz": 50,
+      "sourceType": "DEVICE",
+      "memo": null,
+      "dataQualityScore": 92,
+      "startedAt": "2026-09-10T01:00:00Z",
+      "endedAt": "2026-09-10T01:00:40Z",
+      "createdAt": "2026-09-10T00:59:00Z",
+      "primaryPatternCode": "LEFT_RIGHT_ASYMMETRY",
+      "algorithmVersion": "rule-v1.4.0",
+      "dataQualityLevel": "GOOD",
+      "symmetryIndex": 5.3,
+      "cadence": 108.2,
+      "leftContactTimeMs": 642.0,
+      "rightContactTimeMs": 608.0,
+      "validStepCount": 21,
+      "leftLoadSharePct": 51.8,
+      "rightLoadSharePct": 48.2,
+      "meanStrideTimeMs": 1105.0
+    },
+    {
+      "sessionId": "0c2f5f3e-6f0b-4d9a-8e4e-1b2c3d4e5f60",
+      "status": "CANCELLED",
+      "leftDeviceId": "b4b96290-ad73-42d9-ae21-1446f1258861",
+      "rightDeviceId": "0f1d3c3e-3b1c-4f4e-9f2a-6f1b1a2c3d4e",
+      "sampleRateHz": 50,
+      "sourceType": "DEVICE",
+      "memo": null,
+      "dataQualityScore": null,
+      "startedAt": "2026-09-09T05:10:00Z",
+      "endedAt": "2026-09-09T05:10:12Z",
+      "createdAt": "2026-09-09T05:09:30Z",
+      "primaryPatternCode": null,
+      "algorithmVersion": null,
+      "dataQualityLevel": null,
+      "symmetryIndex": null,
+      "cadence": null,
+      "leftContactTimeMs": null,
+      "rightContactTimeMs": null,
+      "validStepCount": null,
+      "leftLoadSharePct": null,
+      "rightLoadSharePct": null,
+      "meanStrideTimeMs": null
+    }
+  ],
   "page": 0,
   "size": 20,
-  "totalElements": 0,
-  "totalPages": 0
+  "totalElements": 2,
+  "totalPages": 1
 }
 ```
 
 ## 계약 변경 체크
 
-- [ ] OpenAPI (`info.version`, `scripts/validate_contracts.py`의 REQUIRED_OPERATIONS/EXPECTED_ENUMS)
+- [ ] OpenAPI (`info.version`, `scripts/validate_contracts.py`의 EXPECTED_OPENAPI_VERSION/ALGORITHM_VERSION/REQUIRED_OPERATIONS/EXPECTED_ENUMS와 Contract 1.2/1.3 정책 검사)
 - [ ] Realtime schema
 - [ ] 예시·fixture (`fixtures/manifest.json`)
 - [ ] 백엔드 DTO·테스트 (`FrameBatchContractTest`)

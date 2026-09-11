@@ -8,10 +8,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.smartinsole.device.SensorLayout;
-import com.smartinsole.device.SensorLayoutRepository;
-import com.smartinsole.recommendation.Recommendation;
-import com.smartinsole.recommendation.RecommendationRepository;
+import com.smartinsole.device.domain.SensorLayout;
+import com.smartinsole.device.repository.SensorLayoutRepository;
+import com.smartinsole.recommendation.domain.Recommendation;
+import com.smartinsole.recommendation.repository.RecommendationRepository;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -189,7 +189,7 @@ class ApiFlowIntegrationTest {
         assertThat(result).isNotNull();
         assertThat(result.getResponse().getStatus()).isEqualTo(200);
         JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
-        assertThat(response.path("algorithmVersion").asText()).isEqualTo("rule-v1.2.0");
+        assertThat(response.path("algorithmVersion").asText()).isEqualTo("rule-v1.4.0");
         assertThat(response.path("gaitSummary").path("validStepCount").asInt()).isEqualTo(2);
         assertThat(response.path("pressureDistribution").path("leftMidfootRatio").isNumber()).isTrue();
         assertThat(response.path("pressureDistribution").path("rightForefootRatio").isNumber()).isTrue();
@@ -214,6 +214,16 @@ class ApiFlowIntegrationTest {
         response.path("patterns").forEach(pattern -> assertThat(pattern.path("code").asText())
                 .isNotIn("HIGH_MIDFOOT_LOAD", "SHORT_CONTACT_TIME", "LOW_DATA_QUALITY"));
         assertThat(response.path("pressureDistribution").path("leftSensorSharePct").size()).isEqualTo(8);
+        // rule-v1.3.0: identical left/right frames give an even signal share; one window per foot gives no stride.
+        assertThat(response.path("pressureDistribution").path("leftLoadSharePct").asDouble()).isEqualTo(50.0);
+        assertThat(response.path("pressureDistribution").path("rightLoadSharePct").asDouble()).isEqualTo(50.0);
+        assertThat(response.path("gaitSummary").has("leftStrideTimeMs")).isTrue();
+        assertThat(response.path("gaitSummary").path("leftStrideTimeMs").isNull()).isTrue();
+        assertThat(response.path("gaitSummary").path("rightStrideTimeMs").isNull()).isTrue();
+        assertThat(response.path("gaitSummary").path("meanStrideTimeMs").isNull()).isTrue();
+        // rule-v1.4.0: schemaVersion 1.0 batches carry no IMU sample, so the movement summary is an explicit null.
+        assertThat(response.has("movementSummary")).isTrue();
+        assertThat(response.path("movementSummary").isNull()).isTrue();
 
         mvc.perform(get("/api/v1/measurement-sessions")
                         .header("Authorization", bearer(aliceToken))
@@ -221,7 +231,15 @@ class ApiFlowIntegrationTest {
                         .param("to", "2030-01-01T00:00:00Z")
                         .param("minQualityScore", "0"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items[0].primaryPatternCode").isNotEmpty());
+                .andExpect(jsonPath("$.items[0].primaryPatternCode").isNotEmpty())
+                // contract 1.2.0: the history item carries the latest result's summary metrics.
+                .andExpect(jsonPath("$.items[0].algorithmVersion").value("rule-v1.4.0"))
+                .andExpect(jsonPath("$.items[0].dataQualityLevel").isNotEmpty())
+                .andExpect(jsonPath("$.items[0].validStepCount").value(2))
+                .andExpect(jsonPath("$.items[0].cadence").isNumber())
+                .andExpect(jsonPath("$.items[0].leftLoadSharePct").value(50.0))
+                .andExpect(jsonPath("$.items[0].rightLoadSharePct").value(50.0))
+                .andExpect(jsonPath("$.items[0].meanStrideTimeMs").value(org.hamcrest.Matchers.nullValue()));
 
         mvc.perform(get("/api/v1/measurement-sessions")
                         .header("Authorization", bearer(aliceToken))

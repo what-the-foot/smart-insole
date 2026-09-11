@@ -18,18 +18,60 @@ BLE 연결과 BLE 바이너리 파싱은 Python Receiver의 책임이다.
 
 ```text
 com.smartinsole
-├── global
+├── SmartInsoleApplication
+├── global                      # 도메인 공통, 구조 유지
+│   ├── common                  # DomainTypes(enum)
+│   ├── config                  # app.* 속성 record, Async·Time 설정
+│   ├── error                   # ErrorCode, BusinessException, GlobalExceptionHandler, TraceIdFilter
+│   └── security                # SecurityConfig, JWT·Receiver Key 필터
 ├── auth
+│   ├── controller              # AuthController
+│   ├── service                 # AuthService, SeedAccountInitializer
+│   └── dto                     # AuthDtos
 ├── user
+│   ├── domain                  # UserAccount
+│   └── repository              # UserRepository
 ├── device
+│   ├── controller              # DeviceController
+│   ├── service                 # DeviceService
+│   ├── domain                  # Device, SensorLayout
+│   ├── repository              # DeviceRepository, SensorLayoutRepository
+│   └── dto                     # DeviceDtos
 ├── calibration
+│   ├── domain                  # CalibrationProfile
+│   └── repository              # CalibrationProfileRepository
 ├── measurement
+│   ├── controller              # MeasurementController, PressureFrameBatchController, ReceiverSessionController
+│   ├── service                 # MeasurementService, PressureFrameIngestionService, QualityService, ReceiverSessionQueryService
+│   ├── domain                  # MeasurementSession, MeasurementQualityStats, PressureFrameEntity
+│   ├── repository              # MeasurementSessionRepository, PressureFrameRepository, MeasurementQualityRepository, HistoryProjectionRepository
+│   └── dto                     # MeasurementDtos, IngestionDtos
 ├── realtime
+│   ├── controller              # RealtimeController
+│   ├── service                 # RealtimeService, RealtimeSnapshotStore, RealtimeDisconnectScheduler
+│   ├── config                  # WebSocketConfig
+│   ├── security                # StompAuthorizationInterceptor
+│   └── dto                     # RealtimeDtos
 ├── analysis
+│   ├── controller              # AnalysisResultController
+│   ├── service                 # AnalysisCoordinator, AnalysisRunner, AnalysisJobStateService, AnalysisPersistenceService, AnalysisResultQueryService, AnalysisPendingJobScheduler
+│   ├── domain                  # AnalysisJob, AnalysisResult, AnalysisPattern, RuleBasedAnalyzer, PatternCatalog
+│   ├── repository              # AnalysisJobRepository, AnalysisResultRepository, AnalysisPatternRepository
+│   └── dto                     # AnalysisDtos
 └── recommendation
+    ├── controller              # RecommendationController
+    ├── service                 # RecommendationService
+    ├── domain                  # Recommendation, ResultRecommendation
+    ├── repository              # RecommendationRepository
+    └── dto                     # RecommendationDtos
 ```
 
-기능별로 필요한 수준에서 `controller`, `service`, `domain`, `repository`, `dto`를 사용한다.
+도메인 패키지 아래에 `controller`, `service`, `domain`, `repository`, `dto` 계층 패키지를 둔다. 도메인에 없는 계층은 만들지 않는다(`user`, `calibration`은 `domain`·`repository`만).
+
+- 스케줄러와 부트스트랩 러너(`AnalysisPendingJobScheduler`, `RealtimeDisconnectScheduler`, `SeedAccountInitializer`)는 `service`
+- 계산 규칙(`RuleBasedAnalyzer`, `PatternCatalog`)은 `analysis.domain`
+- WebSocket 브로커 설정은 `realtime.config`, STOMP 인가 인터셉터는 `realtime.security`
+- 테스트는 대상 클래스와 같은 패키지에 둔다(`src/test/java/com/smartinsole/<domain>/<layer>/`)
 
 ## 계층 규칙
 

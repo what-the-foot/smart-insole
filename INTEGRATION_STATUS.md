@@ -15,6 +15,8 @@
 
 - 기준 커밋은 개선 전 소스를 그대로 넣은 첫 커밋이다. 이후 커밋은 개선 방안의 작업 단위(FW-*, GW-*, BE-*, FE-*, C-*)별로 나누었다.
 - 수신기 `contracts/PINS.json`은 백엔드 `contracts/openapi.yaml` 1.1.0(커밋 `4668e98`)을 원본 그대로 vendoring해 만든 핀 37개를 담는다.
+- 2026-09-10 백엔드 `openapi.yaml`은 1.2.0(DEC-035, 분석 결과·기록 목록에 nullable 필드 추가)으로 올랐다. 프레임 배치·수신기 API는 바뀌지 않아 수신기의 1.1.0 핀은 그대로 유효하며 재vendoring이 필요하지 않다.
+- 2026-09-11 백엔드 `openapi.yaml`은 1.3.0(DEC-036, `AnalysisResultResponse.movementSummary` nullable 추가, rule-v1.4.0 IMU 정강이 움직임 요약)으로 올랐다. 역시 프레임 배치·수신기 API는 바뀌지 않아 1.1.0 핀은 유효하다. IMU 보드는 인솔이 아니라 외측 발목/정강이 장착으로 확정되었다.
 
 ## 2. 단계별 상태
 
@@ -53,6 +55,7 @@
 - adcMax(기본 4095) 세션 단위 적용, 409 disposition RETRY/DROP, u32 sequence·wrap 의심, sourceType 기본 DEVICE, sampleRateHz {50,100}
 - rule-v1.2.0(ObservationLevel, occurrenceRate, 결과 코드 6종, 센서 비율), STOMP `TOKEN_EXPIRED` ERROR 프레임
 - `scripts/e2e_gateway_mock.py`, 1.1 fixture, FrameBatchContractTest, 결정 기록 DEC-024..032
+- (진행 중, 2026-09-11) 계약 1.3.0·rule-v1.4.0 `movementSummary`(IMU 정강이 움직임 요약, V9 `movement_summary_json`), DEC-036, `docs/11_IMU_MOVEMENT_ROADMAP.md`
 
 ### 프론트엔드 (`what-the-foot/smart-insole`/frontend)
 
@@ -86,6 +89,7 @@
 - 센서 좌표(x, y 0-1), 무부하 잡음·센서 균일성 허용 범위, 관찰 단계별 발생 비율 기준은 규약 페이지에서 확정 필요
 - 실기기 스케일(0-4095) 히트맵 밝기 검증(FE-3 실측)
 - 프론트엔드 기존 10개 파일은 prettier 미적용 상태로 두었다(이번 작업 범위 밖)
+- IMU 정강이 움직임(rule-v1.4.0, DEC-036): 실기기 IMU 검사(정지 ±1000 mg, 회전 gyro, 버스트 < 1 ms) NOT RUN. 지그 벤치·자동 정렬 재현성·참조 계측 대비 오차를 얻기 전까지 사용자 화면에는 '기능 검증용' 표기 이상으로 노출하지 않는다(`docs/11_IMU_MOVEMENT_ROADMAP.md` §6)
 
 ## 6. 다음 단계
 

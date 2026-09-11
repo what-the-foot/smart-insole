@@ -1,7 +1,7 @@
 package com.smartinsole.support;
 
 import com.smartinsole.global.common.DomainTypes.SourceType;
-import com.smartinsole.measurement.MeasurementSession;
+import com.smartinsole.measurement.domain.MeasurementSession;
 import java.time.Instant;
 import java.util.UUID;
 

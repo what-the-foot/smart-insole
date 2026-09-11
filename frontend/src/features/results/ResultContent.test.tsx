@@ -1,9 +1,23 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type { AnalysisResultResponse } from '../../api/types';
-import { resultTerms } from '../../utils/labels';
+import type { AnalysisResultResponse, SensorLayoutResponse } from '../../api/types';
+import { movementTerms, resultTerms } from '../../utils/labels';
+import { LEGACY_SHARE_MESSAGE } from '../realtime/sensorShare';
 import { ResultContent } from './ResultContent';
 import { shouldPollResult } from './resultPolling';
+
+const layout: SensorLayoutResponse = {
+  version: 'layout-s01s08-v1',
+  sensorCount: 8,
+  points: Array.from({ length: 8 }, (_unused, index) => ({
+    label: `S0${index + 1}`,
+    index,
+    x: 0.3 + (index % 2) * 0.35,
+    y: 0.1 + index * 0.1,
+    region: 'MIDFOOT' as const,
+    medialLateral: 'CENTER' as const,
+  })),
+};
 
 const result: AnalysisResultResponse = {
   sessionId: '5803f871-9fca-4a7f-a2c7-9b567a92a6cf',
@@ -65,11 +79,56 @@ describe('결과 표시와 폴링', () => {
     expect(screen.queryByText('평발입니다')).not.toBeInTheDocument();
     expect(screen.queryByText('치료됩니다')).not.toBeInTheDocument();
     expect(screen.getByText('분석에 사용한 유효 걸음')).toBeInTheDocument();
-    expect(screen.getAllByText('중족부')).toHaveLength(2);
+    // 부위별 비율은 양발을 한 행에 묶은 RegionDistributionChart 하나로 그리므로 라벨은 1회다.
+    expect(screen.getAllByText('중족부')).toHaveLength(1);
+    expect(screen.getByRole('group', { name: '발 길이 방향 센서 신호 비율' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: '좌우 방향 센서 신호 비율' })).toBeInTheDocument();
+    // 최대 센서 신호·평균 추정 압력중심은 발별 요약(왼발/오른발)에만 적는다.
     expect(screen.getAllByText(resultTerms.peakSignal)).toHaveLength(2);
     expect(screen.getAllByText(`평균 ${resultTerms.estimatedCop}`)).toHaveLength(2);
     expect(screen.getByText('x 0.42 · y 0.67')).toBeInTheDocument();
     expect(screen.getByText('데이터 없음')).toBeInTheDocument();
+    // sensorSharePct가 양발 모두 없으면 히트맵 대신 부위별 차트만 남기고 이전 분석 안내를 적는다.
+    expect(screen.queryByRole('img', { name: /히트맵/ })).not.toBeInTheDocument();
+    expect(screen.getByText(LEGACY_SHARE_MESSAGE)).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '데이터 품질 92점, 좋음' })).toBeInTheDocument();
+    // 계약 1.3.0 필드가 없으면 좌우 신호 비율(도넛 가운데·범례 2)과 스트라이드 3칸이 '제공 안 됨'.
+    expect(screen.getByRole('img', { name: '좌우 신호 비율 제공 안 됨' })).toBeInTheDocument();
+    expect(screen.getAllByText('제공 안 됨')).toHaveLength(6);
+    expect(screen.getByText(movementTerms.cardTitle)).toBeInTheDocument();
+  });
+
+  it('계약 1.3.0 좌우 신호 비율과 스트라이드 시간(추정)을 백엔드 값 그대로 표시한다', () => {
+    const v130: AnalysisResultResponse = {
+      ...result,
+      algorithmVersion: 'rule-v1.3.0',
+      gaitSummary: {
+        ...result.gaitSummary,
+        leftStrideTimeMs: 1120.4,
+        rightStrideTimeMs: 1099.6,
+        meanStrideTimeMs: 1110,
+      },
+      pressureDistribution: {
+        ...result.pressureDistribution,
+        leftLoadSharePct: 52.4,
+        rightLoadSharePct: 47.6,
+      },
+    };
+    render(
+      <MemoryRouter>
+        <ResultContent result={v130} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('좌우 신호 비율')).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: '좌우 신호 비율 왼발 52.4%, 오른발 47.6%' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('52 : 48')).toBeInTheDocument();
+    expect(screen.getByText('스트라이드 시간(추정)')).toBeInTheDocument();
+    expect(screen.getByText('1,120')).toBeInTheDocument();
+    expect(screen.getByText('1,100')).toBeInTheDocument();
+    expect(screen.getByText('1,110')).toBeInTheDocument();
+    expect(screen.queryByText('제공 안 됨')).not.toBeInTheDocument();
   });
 
   it.each([
@@ -202,7 +261,7 @@ describe('결과 표시와 폴링', () => {
     };
     const { container } = render(
       <MemoryRouter>
-        <ResultContent result={observed} />
+        <ResultContent leftLayout={layout} result={observed} rightLayout={layout} />
       </MemoryRouter>,
     );
 
@@ -223,7 +282,17 @@ describe('결과 표시와 폴링', () => {
     expect(groups[2]).toHaveTextContent('엄지 신호 낮음');
     expect(screen.queryByText(/관찰 단계 미제공/)).not.toBeInTheDocument();
 
-    expect(container.querySelectorAll('.share-bar')).toHaveLength(8);
+    // 세션 평균 히트맵 두 장(오른발은 share 없음 → 이전 분석 안내)과 센서별 표 8행
+    expect(screen.getByRole('img', { name: '왼발 센서 신호 비율 히트맵' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '오른발 센서 신호 비율 히트맵' })).toBeInTheDocument();
+    expect(container.querySelectorAll('.sensor-point')).toHaveLength(16);
+    expect(screen.getAllByText(LEGACY_SHARE_MESSAGE).length).toBeGreaterThan(0);
+    const shareRows = container.querySelectorAll('.share-bar');
+    expect(shareRows).toHaveLength(8);
+    expect(shareRows[0]).toHaveTextContent('#1');
+    expect(shareRows[0]).toHaveTextContent('S01');
+    expect(shareRows[0]).toHaveTextContent('10%');
+    expect(shareRows[0]).toHaveTextContent('—');
     expect(container.textContent).not.toMatch(/최대 압력|CoP|정상/);
   });
 
@@ -278,6 +347,9 @@ describe('결과 표시와 폴링', () => {
       </MemoryRouter>,
     );
     expect(screen.getByText('이전 분석')).toBeInTheDocument();
-    expect(screen.getAllByText('제공 안 됨')).toHaveLength(6);
+    // 부위별 차트 null 4칸(중족부·전족부 × 양발) + 최대 센서 신호 2 + 좌우 신호 비율 3 + 스트라이드 3
+    expect(screen.getAllByText('제공 안 됨')).toHaveLength(12);
+    expect(screen.queryByRole('img', { name: /히트맵/ })).not.toBeInTheDocument();
+    expect(screen.getByText(LEGACY_SHARE_MESSAGE)).toBeInTheDocument();
   });
 });

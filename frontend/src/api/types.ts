@@ -28,6 +28,7 @@ export type ContactState = components['schemas']['ContactState'];
 export type AnalysisPendingResponse = components['schemas']['AnalysisPendingResponse'];
 export type AnalysisResultResponse = components['schemas']['AnalysisResultResponse'];
 export type DataQualityResult = components['schemas']['DataQualityResult'];
+export type GaitSummary = components['schemas']['GaitSummary'];
 export type PressureDistribution = components['schemas']['PressureDistribution'];
 export type SensorSharePct = components['schemas']['SensorSharePct'];
 export type RecommendationSummary = components['schemas']['RecommendationSummary'];
@@ -37,6 +38,10 @@ export type PatternSeverity = components['schemas']['PatternSeverity'];
 export type ObservationLevel = components['schemas']['ObservationLevel'];
 export type ObservationSummaryItem = components['schemas']['ObservationSummaryItem'];
 export type ObservationPatternCode = ObservationSummaryItem['code'];
+// 계약 1.3.0 / rule-v1.4.0 정강이 IMU 움직임 요약(DEC-036). 객체 전체·left/right 모두 nullable.
+export type MovementSummary = components['schemas']['MovementSummary'];
+export type MovementFootSummary = components['schemas']['MovementFootSummary'];
+export type MovementReferenceMethod = components['schemas']['MovementReferenceMethod'];
 export type MeasurementListQuery = NonNullable<
   operations['listMeasurementSessions']['parameters']['query']
 >;

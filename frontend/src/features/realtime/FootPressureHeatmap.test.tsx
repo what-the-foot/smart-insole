@@ -1,6 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import type { FootRealtimeData, SensorLayoutResponse } from '../../api/types';
+import { PREFERENCES_STORAGE_KEY, savePreferences } from '../../app/preferences';
 import { FootPressureHeatmap } from './FootPressureHeatmap';
+import { pressureColor } from './heatmapColors';
 import { sensorSharePercent } from './sensorShare';
 
 const layout: SensorLayoutResponse = {
@@ -131,5 +133,73 @@ describe('FootPressureHeatmap', () => {
       'transform',
       'translate(77 228)',
     );
+  });
+
+  it('요약 문장에 가장 높은 신호 2개를 라벨과 함께 넣고, 캔버스가 없으면 격자 표면으로 대체한다', () => {
+    const { container } = render(
+      <FootPressureHeatmap
+        data={{ ...lastRight, sensorValues: [10, 10, 10, 10, 10, 10, 92, 71], totalPressure: 223 }}
+        disconnected={false}
+        layout={labeledLayout}
+        side="RIGHT"
+      />,
+    );
+    expect(container.querySelector('.sr-only')?.textContent).toContain(
+      '가장 높은 신호: S07 92, S08 71',
+    );
+    // jsdom에는 2D 캔버스가 없으므로 <image> 대신 클립된 rect 격자가 그려지고 원·텍스트는 그대로다.
+    expect(container.querySelector('image.heatmap-surface')).toBeNull();
+    expect(container.querySelectorAll('.heat-cell').length).toBeGreaterThan(0);
+    expect(container.querySelector('.heatmap-surface--cells')?.getAttribute('clip-path')).toMatch(
+      /^url\(#foot-clip-[A-Za-z0-9_-]+\)$/,
+    );
+    expect(container.querySelectorAll('.sensor-point')).toHaveLength(8);
+    expect(container.querySelectorAll('.sensor-point--empty')).toHaveLength(0);
+  });
+
+  it('데이터가 없으면 표면을 그리지 않고 비어 있는 원만 남긴다', () => {
+    const { container } = render(
+      <FootPressureHeatmap data={null} disconnected={false} layout={layout} side="RIGHT" />,
+    );
+    expect(container.querySelector('.heatmap-surface')).toBeNull();
+    expect(container.querySelectorAll('.sensor-point--empty')).toHaveLength(6);
+    // 데이터가 없는 원에는 측정된 것처럼 보이는 '0' 수치를 쓰지 않는다.
+    expect(container.querySelectorAll('.sensor-value')).toHaveLength(0);
+    expect(container.querySelectorAll('.sensor-share')).toHaveLength(0);
+    expect(screen.getByText('아직 센서 데이터가 없습니다.')).toBeInTheDocument();
+  });
+
+  it("설정의 '센서 점' 모드에서는 보간 표면 없이 색·수치가 있는 원만 그리고, 설정을 되돌리면 표면이 돌아온다", () => {
+    savePreferences({ defaultSampleRateHz: 50, heatmapMode: 'points', reduceMotion: true });
+    try {
+      const { container } = render(
+        <FootPressureHeatmap
+          data={lastRight}
+          disconnected={false}
+          layout={layout}
+          side="RIGHT"
+          throttleMs={0}
+        />,
+      );
+      expect(container.querySelector('.heatmap-surface')).toBeNull();
+      expect(container.querySelectorAll('.heat-cell')).toHaveLength(0);
+      const points = container.querySelectorAll('.sensor-point');
+      expect(points).toHaveLength(6);
+      expect(container.querySelectorAll('.sensor-point--empty')).toHaveLength(0);
+      expect(points[5]).toHaveAttribute('fill', pressureColor(100));
+      expect(screen.getByText('100')).toBeInTheDocument();
+      expect(screen.getByText('33%')).toBeInTheDocument();
+
+      act(() => {
+        savePreferences({
+          defaultSampleRateHz: 50,
+          heatmapMode: 'continuous',
+          reduceMotion: false,
+        });
+      });
+      expect(container.querySelectorAll('.heat-cell').length).toBeGreaterThan(0);
+    } finally {
+      window.localStorage.removeItem(PREFERENCES_STORAGE_KEY);
+    }
   });
 });

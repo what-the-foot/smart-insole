@@ -22,6 +22,25 @@
 - STOMP: 토큰 만료 시 `ERROR` 프레임(`TOKEN_EXPIRED`) 후 연결 종료.
 - Flyway V5(프레임 메타·ADC·수신기 컬럼), V6(레이아웃 seed), V7(관찰 필드)이 추가되었습니다. 레거시 행의 `adc_max`는 65535로 백필됩니다.
 
+## 계약 1.2 (2026-09-10)
+
+`contracts/openapi.yaml` 1.2.0은 1.1.0에 대한 추가 전용 변경입니다(DEC-035). 프레임 배치·수신기 API는 바뀌지 않으므로 BLE 수신기가 vendoring한 1.1.0 핀은 그대로 유효합니다.
+
+- 분석 `rule-v1.3.0`: `pressureDistribution.leftLoadSharePct/rightLoadSharePct`(좌우 신호 비율, `L/(L+R)×100`, 상대 신호 비율이며 힘·체중이 아님)와 `gaitSummary.leftStrideTimeMs/rightStrideTimeMs/meanStrideTimeMs`(같은 발 연속 접촉 구간 시작-시작 간격의 중앙값, 접촉 구간 기반 추정)를 추가합니다.
+- `MeasurementHistoryItem`에 최신 결과 요약(`algorithmVersion`, `dataQualityLevel`, `symmetryIndex`, `cadence`, `leftContactTimeMs`, `rightContactTimeMs`, `validStepCount`, `leftLoadSharePct`, `rightLoadSharePct`, `meanStrideTimeMs`)을 넣어 목록 호출 한 번으로 추세 그래프를 그립니다.
+- 모든 새 필드는 nullable·선택이며 이전 알고리즘 결과와 COMPLETED가 아닌 세션은 `null`입니다(DEC-023). 참고 범위나 판정 문구('정상'·'양호'·'개선')는 두지 않습니다.
+- Flyway V8(`analysis_results`의 `left/right_load_share_pct`, `left/right/mean_stride_time_ms`)이 추가됩니다. `scripts/validate_contracts.py`는 1.2.0과 새 필드의 nullable 정책을 검사합니다.
+
+## 계약 1.3 (2026-09-11)
+
+`contracts/openapi.yaml` 1.3.0은 1.2.0에 대한 추가 전용 변경입니다(DEC-036). 프레임 배치·수신기 API는 바뀌지 않으므로 수신기의 1.1.0 핀은 그대로 유효합니다.
+
+- 분석 `rule-v1.4.0`: `AnalysisResultResponse.movementSummary`(nullable)에 IMU 기반 **정강이 움직임 요약(기능 검증용)**을 추가합니다. IMU 보드는 인솔이 아니라 외측 발목/정강이에 장착되므로 정강이 분절의 운동만 나타내며 발 관절 각도·발 진행각은 산출하지 않습니다.
+- `MovementSummary { imuCoverage 0..1, referenceMethod QUIET_STANDING|FIRST_STANCE|null, left, right }`, `MovementFootSummary { frontalTiltDeg, sagittalRangeDeg, transverseRangeDeg, swingPeakAngularVelocityDps, windowCount }`. 화면 용어는 정강이 좌우 기울기(중간 입각기), 입각기 정강이 전후/수평 회전 범위, 유각기 최대 각속도입니다.
+- 보드 장착 방향은 세션마다 자동 정렬합니다. 사용자는 시작 후 약 2초 가만히 서 있고(실시간 화면 카운트다운) 백엔드가 정지 구간을 데이터에서 찾으므로 API 변경은 없습니다.
+- 객체 전체는 `rule-v1.4.0` 이전 결과와 IMU 프레임 없는 세션에서 `null`, `left/right`는 `imuCoverage < 0.5` 또는 기준 자세 실패 시 `null`입니다(DEC-023). 참조 계측 대비 오차를 얻기 전에는 사용자 화면에 "기능 검증용" 표기를 붙인 카드 이상으로 노출하지 않습니다(참고 범위·판정 문구 없음)(`docs/11_IMU_MOVEMENT_ROADMAP.md`).
+- Flyway V9(`analysis_results.movement_summary_json`)가 추가됩니다. `scripts/validate_contracts.py`는 1.3.0과 새 필드의 nullable·중립 용어 정책을 검사합니다.
+
 ## 빠른 시작
 
 필수 도구는 Java 21, Node.js 20.19 이상(또는 22.12 이상), Python 3.10 이상, Docker Compose입니다.
@@ -124,6 +143,7 @@ smart-insole/
 10. `docs/09_DECISION_LOG.md`
 11. `docs/10_UI_SPEC.md`
 12. `docs/11_HUMAN_REVIEW_CHECKLIST.md`
+13. `docs/11_IMU_MOVEMENT_ROADMAP.md`
 
 ## 설계 문서로 변경 작업을 시작하는 방법
 

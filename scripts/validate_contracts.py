@@ -42,8 +42,9 @@ EXPECTED_ENUMS = {
     "ObservationLevel": ["NOT_OBSERVED", "PARTIALLY_OBSERVED", "REPEATEDLY_OBSERVED"],
     "DataMode": ["RAW", "FILTERED"],
     "ReceiverUploadState": ["STREAMING", "UPLOADING", "UPLOAD_COMPLETE"],
+    "MovementReferenceMethod": ["QUIET_STANDING", "FIRST_STANCE"],
 }
-EXPECTED_OPENAPI_VERSION = "1.1.0"
+EXPECTED_OPENAPI_VERSION = "1.3.0"
 EXPECTED_FIXTURE_VERSION = "1.1"
 ADC_MAX = 4095
 SEQUENCE_MAX = 4294967295
@@ -67,6 +68,48 @@ PATTERN_CODES = [
     "FOREFOOT_LOAD_TENDENCY",
     "REARFOOT_LOAD_TENDENCY",
 ]
+# Current analyzer version (DEC-036, contract 1.3.0). Older field families keep the version that introduced them.
+ALGORITHM_VERSION = "rule-v1.4.0"
+# Contract 1.2.0 / rule-v1.3.0 (DEC-035): every new field is nullable, optional and neutrally worded.
+LOAD_SHARE_ALGORITHM_VERSION = "rule-v1.3.0"
+LOAD_SHARE_FIELDS = ("leftLoadSharePct", "rightLoadSharePct")
+STRIDE_FIELDS = ("leftStrideTimeMs", "rightStrideTimeMs", "meanStrideTimeMs")
+HISTORY_SUMMARY_FIELDS: dict[str, str | None] = {
+    "algorithmVersion": "string",
+    "dataQualityLevel": None,  # allOf $ref QualityLevel
+    "symmetryIndex": "number",
+    "cadence": "number",
+    "leftContactTimeMs": "number",
+    "rightContactTimeMs": "number",
+    "validStepCount": "integer",
+    "leftLoadSharePct": "number",
+    "rightLoadSharePct": "number",
+    "meanStrideTimeMs": "number",
+}
+# Display wording must stay neutral: no reference ranges or value judgements (DEC-013, DEC-035).
+FORBIDDEN_DISPLAY_TERMS = ("정상", "양호", "개선")
+# Contract 1.3.0 / rule-v1.4.0 (DEC-036): IMU shank movement summary. The board sits on the lateral
+# ankle/shank, so descriptions must speak of 정강이 (shank) and 기능 검증용 (functional test) and never of
+# foot-joint angles, foot progression or graded judgements.
+MOVEMENT_SUMMARY_FIELDS = ("imuCoverage", "referenceMethod", "left", "right")
+MOVEMENT_FOOT_FIELDS: dict[str, tuple[str, bool]] = {  # name -> (json type, nullable)
+    "frontalTiltDeg": ("number", True),
+    "sagittalRangeDeg": ("number", True),
+    "transverseRangeDeg": ("number", True),
+    "swingPeakAngularVelocityDps": ("number", True),
+    "windowCount": ("integer", False),
+}
+MOVEMENT_NON_NEGATIVE_FIELDS = ("sagittalRangeDeg", "transverseRangeDeg", "swingPeakAngularVelocityDps", "windowCount")
+MOVEMENT_DISPLAY_TERMS = {
+    "frontalTiltDeg": "정강이 좌우 기울기(중간 입각기)",
+    "sagittalRangeDeg": "입각기 정강이 전후 회전 범위",
+    "transverseRangeDeg": "입각기 정강이 수평 회전 범위",
+    "swingPeakAngularVelocityDps": "유각기 최대 각속도",
+}
+MOVEMENT_REQUIRED_TERMS = ("정강이", "기능 검증용")
+MOVEMENT_FORBIDDEN_TERMS = FORBIDDEN_DISPLAY_TERMS + (
+    "악화", "위험", "중등도", "내번", "외번", "진행각", "최대 압력", "CoP",
+)
 REQUIRED_OPERATIONS = {
     ("post", "/api/v1/auth/signup"),
     ("post", "/api/v1/auth/signin"),
@@ -228,6 +271,8 @@ def main() -> int:
         Check("Request non-blank parity", lambda: check_non_blank_policy(openapi)),
         Check("Heartbeat receiver identity policy", lambda: check_heartbeat_policy(openapi)),
         Check("Contract 1.1 field policy", lambda: check_contract_1_1(openapi)),
+        Check("Contract 1.2 gait metric policy", lambda: check_contract_1_2(openapi)),
+        Check("Contract 1.3 movement summary policy", lambda: check_contract_1_3(openapi)),
         Check("Sensor layout cardinality", lambda: check_sensor_layout(openapi)),
         Check(
             "Realtime JSON Schema and examples",
@@ -534,6 +579,250 @@ def check_contract_1_1(document: dict[str, Any]) -> str:
     return (
         f"ADC max {ADC_MAX}, u32 sequence, sampleRateHz {SAMPLE_RATES}, sourceType default DEVICE, "
         "1.1 optional frame fields, receiver session/status schemas, observation fields"
+    )
+
+
+def require_nullable_metric(schema: dict[str, Any], schema_name: str, field_name: str,
+                            expected_type: str | None, *, maximum: int | None = None) -> None:
+    field = schema["properties"].get(field_name)
+    require(isinstance(field, dict), f"{schema_name} lacks {field_name}")
+    require(field.get("nullable") is True, f"{schema_name}.{field_name} must be nullable")
+    require(field_name not in schema.get("required", []), f"{schema_name}.{field_name} must stay optional")
+    if expected_type is None:
+        refs = [item.get("$ref") for item in field.get("allOf", []) if isinstance(item, dict)]
+        require(
+            refs == ["#/components/schemas/QualityLevel"],
+            f"{schema_name}.{field_name} must wrap QualityLevel via allOf",
+        )
+    else:
+        require(field.get("type") == expected_type, f"{schema_name}.{field_name} must be {expected_type}")
+        if expected_type in ("number", "integer"):
+            require(field.get("minimum") == 0, f"{schema_name}.{field_name} must declare minimum 0")
+            require(field.get("maximum") == maximum, f"{schema_name}.{field_name} must declare maximum {maximum}")
+    description = field.get("description", "")
+    require(bool(description), f"{schema_name}.{field_name} must carry a description")
+    leaked = [term for term in FORBIDDEN_DISPLAY_TERMS if term in description]
+    require(not leaked, f"{schema_name}.{field_name} description uses non-neutral terms {leaked}")
+
+
+def check_contract_1_2(document: dict[str, Any]) -> str:
+    schemas = document["components"]["schemas"]
+    distribution = schemas["PressureDistribution"]
+    for name in LOAD_SHARE_FIELDS:
+        require_nullable_metric(distribution, "PressureDistribution", name, "number", maximum=100)
+        require(LOAD_SHARE_ALGORITHM_VERSION in distribution["properties"][name]["description"],
+                f"PressureDistribution.{name} must state {LOAD_SHARE_ALGORITHM_VERSION}")
+    require(
+        "신호 비율" in distribution["properties"]["leftLoadSharePct"]["description"],
+        "leftLoadSharePct must use the display term '좌우 신호 비율' (relative signal share, not force)",
+    )
+    gait = schemas["GaitSummary"]
+    for name in STRIDE_FIELDS:
+        require_nullable_metric(gait, "GaitSummary", name, "number")
+        require(LOAD_SHARE_ALGORITHM_VERSION in gait["properties"][name]["description"],
+                f"GaitSummary.{name} must state {LOAD_SHARE_ALGORITHM_VERSION}")
+    history = schemas["MeasurementHistoryItem"]
+    require(history.get("additionalProperties") is False, "MeasurementHistoryItem must keep additionalProperties: false")
+    for name, expected_type in HISTORY_SUMMARY_FIELDS.items():
+        require_nullable_metric(history, "MeasurementHistoryItem", name, expected_type,
+                                maximum=100 if name in LOAD_SHARE_FIELDS else None)
+    for schema_name in ("PressureDistribution", "GaitSummary", "MeasurementHistoryItem", "AnalysisResultResponse"):
+        for field_name, field in schemas[schema_name]["properties"].items():
+            description = field.get("description", "") if isinstance(field, dict) else ""
+            leaked = [term for term in FORBIDDEN_DISPLAY_TERMS if term in description]
+            require(not leaked, f"{schema_name}.{field_name} description uses non-neutral terms {leaked}")
+
+    gait_validator = Draft7Validator(dereference_schema(gait, document), format_checker=FormatChecker())
+    base_gait = {"validStepCount": 21, "cadence": 108.2, "leftContactTimeMs": 642.0,
+                 "rightContactTimeMs": 608.0, "symmetryIndex": 5.3}
+    legacy_gait = {**base_gait, "leftStrideTimeMs": None, "rightStrideTimeMs": None, "meanStrideTimeMs": None}
+    require(not list(gait_validator.iter_errors(legacy_gait)), "GaitSummary with null stride times was rejected")
+    require(not list(gait_validator.iter_errors(base_gait)), "GaitSummary without stride keys was rejected")
+    require(not list(gait_validator.iter_errors({**base_gait, "leftStrideTimeMs": 1120.0,
+                                                 "rightStrideTimeMs": None, "meanStrideTimeMs": 1120.0})),
+            "GaitSummary with one-sided stride time was rejected")
+    require(bool(list(gait_validator.iter_errors({**base_gait, "meanStrideTimeMs": -1}))),
+            "negative meanStrideTimeMs must be rejected")
+
+    distribution_schema = dereference_schema(distribution, document)
+    distribution_validator = Draft7Validator(distribution_schema, format_checker=FormatChecker())
+    base_distribution = {
+        "leftMedialRatio": 0.61, "leftLateralRatio": 0.39, "rightMedialRatio": 0.58, "rightLateralRatio": 0.42,
+        "leftHeelRatio": 0.35, "rightHeelRatio": 0.34, "leftMidfootRatio": None, "rightMidfootRatio": None,
+        "leftForefootRatio": None, "rightForefootRatio": None, "leftPeakPressure": None, "rightPeakPressure": None,
+        "leftMeanCoP": None, "rightMeanCoP": None, "leftSensorSharePct": None, "rightSensorSharePct": None,
+    }
+    require(not list(distribution_validator.iter_errors({**base_distribution, "leftLoadSharePct": None,
+                                                         "rightLoadSharePct": None})),
+            "PressureDistribution with null load share was rejected")
+    require(not list(distribution_validator.iter_errors({**base_distribution, "leftLoadSharePct": 51.8,
+                                                         "rightLoadSharePct": 48.2})),
+            "PressureDistribution with load share was rejected")
+    require(bool(list(distribution_validator.iter_errors({**base_distribution, "leftLoadSharePct": 100.1,
+                                                          "rightLoadSharePct": 0}))),
+            "load share above 100 must be rejected")
+
+    history_validator = Draft7Validator(dereference_schema(history, document), format_checker=FormatChecker())
+    base_item = {
+        "sessionId": "5803f871-9fca-4a7f-a2c7-9b567a92a6cf", "status": "COMPLETED",
+        "leftDeviceId": "b4b96290-ad73-42d9-ae21-1446f1258861", "rightDeviceId": "0f1d3c3e-3b1c-4f4e-9f2a-6f1b1a2c3d4e",
+        "sampleRateHz": 50, "sourceType": "DEVICE", "memo": None, "dataQualityScore": 92,
+        "startedAt": "2026-09-10T01:00:00Z", "endedAt": "2026-09-10T01:00:40Z", "createdAt": "2026-09-10T00:59:00Z",
+        "primaryPatternCode": None,
+    }
+    legacy_item = {**base_item, **{name: None for name in HISTORY_SUMMARY_FIELDS}}
+    require(not list(history_validator.iter_errors(legacy_item)), "history item with all-null summary was rejected")
+    require(not list(history_validator.iter_errors({**base_item, "status": "CREATED"})),
+            "history item without summary keys was rejected")
+    full_item = {**base_item, "algorithmVersion": ALGORITHM_VERSION, "dataQualityLevel": "GOOD",
+                 "symmetryIndex": 5.3, "cadence": 108.2, "leftContactTimeMs": 642.0, "rightContactTimeMs": 608.0,
+                 "validStepCount": 21, "leftLoadSharePct": 51.8, "rightLoadSharePct": 48.2, "meanStrideTimeMs": 1105.0}
+    require(not list(history_validator.iter_errors(full_item)), "full history item was rejected")
+    require(bool(list(history_validator.iter_errors({**full_item, "validStepCount": 1.5}))),
+            "fractional validStepCount must be rejected")
+    require(bool(list(history_validator.iter_errors({**full_item, "dataQualityLevel": "FAIR"}))),
+            "unknown dataQualityLevel must be rejected")
+    require(bool(list(history_validator.iter_errors({**full_item, "strideTimeMs": 1.0}))),
+            "undeclared history field must be rejected")
+    return (
+        f"{LOAD_SHARE_ALGORITHM_VERSION} load share/stride fields and {len(HISTORY_SUMMARY_FIELDS)} history summary fields "
+        "are nullable, optional, bounded and neutrally worded"
+    )
+
+
+def check_contract_1_3(document: dict[str, Any]) -> str:
+    """rule-v1.4.0 movementSummary: nullable/optional at the result level, stable inner shape, neutral shank wording."""
+    schemas = document["components"]["schemas"]
+    result = schemas["AnalysisResultResponse"]
+    require(
+        ALGORITHM_VERSION in result["properties"]["algorithmVersion"].get("description", ""),
+        f"AnalysisResultResponse.algorithmVersion must state the current version {ALGORITHM_VERSION}",
+    )
+    movement = result["properties"].get("movementSummary")
+    require(isinstance(movement, dict), "AnalysisResultResponse lacks movementSummary")
+    require(movement.get("nullable") is True, "AnalysisResultResponse.movementSummary must be nullable")
+    require("movementSummary" not in result.get("required", []), "movementSummary must stay optional")
+    require(
+        [item.get("$ref") for item in movement.get("allOf", [])] == ["#/components/schemas/MovementSummary"],
+        "movementSummary must wrap MovementSummary via allOf",
+    )
+    require(ALGORITHM_VERSION in movement.get("description", ""), f"movementSummary must state {ALGORITHM_VERSION}")
+
+    summary = schemas["MovementSummary"]
+    require(summary.get("additionalProperties") is False, "MovementSummary must keep additionalProperties: false")
+    require(sorted(summary.get("required", [])) == sorted(MOVEMENT_SUMMARY_FIELDS),
+            f"MovementSummary.required must be {MOVEMENT_SUMMARY_FIELDS}")
+    require(set(summary["properties"]) == set(MOVEMENT_SUMMARY_FIELDS),
+            f"MovementSummary must declare exactly {MOVEMENT_SUMMARY_FIELDS}")
+    coverage = summary["properties"]["imuCoverage"]
+    require(coverage.get("type") == "number" and coverage.get("minimum") == 0 and coverage.get("maximum") == 1,
+            "MovementSummary.imuCoverage must be a number in 0..1")
+    require(coverage.get("nullable") is not True, "MovementSummary.imuCoverage is never null (the whole object is)")
+    reference = summary["properties"]["referenceMethod"]
+    require(reference.get("nullable") is True, "MovementSummary.referenceMethod must be nullable")
+    require(
+        [item.get("$ref") for item in reference.get("allOf", [])] == ["#/components/schemas/MovementReferenceMethod"],
+        "referenceMethod must wrap MovementReferenceMethod via allOf",
+    )
+    require(schemas["MovementReferenceMethod"].get("enum") == EXPECTED_ENUMS["MovementReferenceMethod"],
+            f"MovementReferenceMethod enum must be {EXPECTED_ENUMS['MovementReferenceMethod']}")
+    for side in ("left", "right"):
+        field = summary["properties"][side]
+        require(field.get("nullable") is True, f"MovementSummary.{side} must be nullable")
+        require(
+            [item.get("$ref") for item in field.get("allOf", [])] == ["#/components/schemas/MovementFootSummary"],
+            f"MovementSummary.{side} must wrap MovementFootSummary via allOf",
+        )
+    for term in MOVEMENT_REQUIRED_TERMS:
+        require(term in summary.get("description", ""), f"MovementSummary description must state '{term}'")
+
+    foot = schemas["MovementFootSummary"]
+    require(foot.get("additionalProperties") is False, "MovementFootSummary must keep additionalProperties: false")
+    require(sorted(foot.get("required", [])) == sorted(MOVEMENT_FOOT_FIELDS),
+            f"MovementFootSummary.required must be {sorted(MOVEMENT_FOOT_FIELDS)}")
+    require(set(foot["properties"]) == set(MOVEMENT_FOOT_FIELDS),
+            f"MovementFootSummary must declare exactly {sorted(MOVEMENT_FOOT_FIELDS)}")
+    for name, (expected_type, nullable) in MOVEMENT_FOOT_FIELDS.items():
+        field = foot["properties"][name]
+        require(field.get("type") == expected_type, f"MovementFootSummary.{name} must be {expected_type}")
+        require(bool(field.get("nullable")) is nullable,
+                f"MovementFootSummary.{name} nullable must be {nullable}")
+        if name in MOVEMENT_NON_NEGATIVE_FIELDS:
+            require(field.get("minimum") == 0, f"MovementFootSummary.{name} must declare minimum 0")
+        description = field.get("description", "")
+        require(ALGORITHM_VERSION in description, f"MovementFootSummary.{name} must state {ALGORITHM_VERSION}")
+        if name in MOVEMENT_DISPLAY_TERMS:
+            require(MOVEMENT_DISPLAY_TERMS[name] in description,
+                    f"MovementFootSummary.{name} must carry the display term '{MOVEMENT_DISPLAY_TERMS[name]}'")
+    frontal = foot["properties"]["frontalTiltDeg"]
+    require(frontal.get("minimum") == -180 and frontal.get("maximum") == 180,
+            "frontalTiltDeg must be bounded to -180..180 (signed: + lateral, - medial)")
+
+    texts = [movement.get("description", "")]
+    for schema_name in ("MovementSummary", "MovementFootSummary", "MovementReferenceMethod"):
+        schema = schemas[schema_name]
+        texts.append(schema.get("description", ""))
+        texts.extend(field.get("description", "") for field in schema.get("properties", {}).values()
+                     if isinstance(field, dict))
+    for text in texts:
+        leaked = [term for term in MOVEMENT_FORBIDDEN_TERMS if term in text]
+        require(not leaked, f"movement description uses non-neutral or foot-joint terms {leaked}")
+
+    summary_validator = Draft7Validator(dereference_schema(summary, document), format_checker=FormatChecker())
+    foot_ok = {"frontalTiltDeg": -2.4, "sagittalRangeDeg": 38.5, "transverseRangeDeg": 9.1,
+               "swingPeakAngularVelocityDps": 312.0, "windowCount": 19}
+    foot_empty = {"frontalTiltDeg": None, "sagittalRangeDeg": None, "transverseRangeDeg": None,
+                  "swingPeakAngularVelocityDps": None, "windowCount": 0}
+    full = {"imuCoverage": 0.98, "referenceMethod": "QUIET_STANDING", "left": foot_ok,
+            "right": {**foot_ok, "frontalTiltDeg": 1.1}}
+    require(not list(summary_validator.iter_errors(full)), "full MovementSummary was rejected")
+    require(not list(summary_validator.iter_errors({"imuCoverage": 0.31, "referenceMethod": None,
+                                                    "left": None, "right": None})),
+            "MovementSummary with low coverage (null sides) was rejected")
+    require(not list(summary_validator.iter_errors({"imuCoverage": 0.8, "referenceMethod": "FIRST_STANCE",
+                                                    "left": foot_empty, "right": None})),
+            "MovementSummary with an empty-window foot was rejected")
+    require(bool(list(summary_validator.iter_errors({**full, "imuCoverage": 1.5}))),
+            "imuCoverage above 1 must be rejected")
+    require(bool(list(summary_validator.iter_errors({**full, "referenceMethod": "GYRO_ONLY"}))),
+            "unknown referenceMethod must be rejected")
+    require(bool(list(summary_validator.iter_errors({**full, "left": {**foot_ok, "sagittalRangeDeg": -1}}))),
+            "negative sagittalRangeDeg must be rejected")
+    require(bool(list(summary_validator.iter_errors({**full, "left": {**foot_ok, "windowCount": 2.5}}))),
+            "fractional windowCount must be rejected")
+    require(bool(list(summary_validator.iter_errors({**full, "left": {**foot_ok, "windowCount": None}}))),
+            "null windowCount must be rejected")
+    require(bool(list(summary_validator.iter_errors({**full, "left": {**foot_ok, "inversionDeg": 1.0}}))),
+            "undeclared MovementFootSummary field must be rejected")
+    require(bool(list(summary_validator.iter_errors({"imuCoverage": 0.9, "left": None, "right": None}))),
+            "MovementSummary without referenceMethod key must be rejected")
+
+    result_validator = Draft7Validator(dereference_schema(result, document), format_checker=FormatChecker())
+    base_result = {
+        "sessionId": "5803f871-9fca-4a7f-a2c7-9b567a92a6cf", "status": "COMPLETED",
+        "algorithmVersion": ALGORITHM_VERSION,
+        "dataQuality": {"score": 92, "level": "GOOD", "missingFrameRate": 0.003, "flags": []},
+        "gaitSummary": {"validStepCount": 21, "cadence": 108.2, "leftContactTimeMs": 642.0,
+                        "rightContactTimeMs": 608.0, "symmetryIndex": 5.3},
+        "pressureDistribution": {
+            "leftMedialRatio": 0.61, "leftLateralRatio": 0.39, "rightMedialRatio": 0.58, "rightLateralRatio": 0.42,
+            "leftHeelRatio": 0.35, "rightHeelRatio": 0.34, "leftMidfootRatio": None, "rightMidfootRatio": None,
+            "leftForefootRatio": None, "rightForefootRatio": None, "leftPeakPressure": None,
+            "rightPeakPressure": None, "leftMeanCoP": None, "rightMeanCoP": None,
+        },
+        "patterns": [], "observationSummary": None, "recommendations": [],
+        "disclaimer": "본 결과는 의료 진단이 아닙니다.", "createdAt": "2026-09-11T01:00:00Z",
+    }
+    require(not list(result_validator.iter_errors(base_result)), "result without movementSummary key was rejected")
+    require(not list(result_validator.iter_errors({**base_result, "movementSummary": None})),
+            "result with null movementSummary was rejected")
+    require(not list(result_validator.iter_errors({**base_result, "movementSummary": full})),
+            "result with full movementSummary was rejected")
+    require(bool(list(result_validator.iter_errors({**base_result, "movementSummary": {}}))),
+            "empty movementSummary object must be rejected")
+    return (
+        f"{ALGORITHM_VERSION} movementSummary is nullable/optional, {len(MOVEMENT_FOOT_FIELDS)} shank fields "
+        "are typed, bounded and neutrally worded (shank / functional-test terms present)"
     )
 
 

@@ -8,18 +8,21 @@ import type { SampleRateHz } from '../api/types';
 import { FootDeviceSelector } from '../components/FootDeviceSelector';
 import { Icon } from '../components/Icon';
 import { ErrorPanel, PageHeader, Spinner, StatePanel } from '../components/StatusUi';
-import {
-  DEFAULT_SAMPLE_RATE_HZ,
-  SAMPLE_RATE_OPTIONS,
-  sampleRateLabels,
-} from '../features/measurement/sampleRates';
+import { readPreferences } from '../app/preferences';
+import { SAMPLE_RATE_OPTIONS, sampleRateLabels } from '../features/measurement/sampleRates';
+
+// 준비 단계: 1 인솔 선택 → 2 전송률 → 3 시작(live 화면에서 '측정 시작').
+const SETUP_STEPS = ['인솔 선택', '전송률', '시작'] as const;
 
 export function NewMeasurementPage() {
   const devices = useDevices();
   const navigate = useNavigate();
   const [leftDeviceId, setLeftDeviceId] = useState('');
   const [rightDeviceId, setRightDeviceId] = useState('');
-  const [sampleRateHz, setSampleRateHz] = useState<SampleRateHz>(DEFAULT_SAMPLE_RATE_HZ);
+  // 설정 페이지의 '기본 전송률'(localStorage)을 우선하고, 없으면 env 기본값으로 돌아간다.
+  const [sampleRateHz, setSampleRateHz] = useState<SampleRateHz>(
+    () => readPreferences().defaultSampleRateHz,
+  );
   const [simulated, setSimulated] = useState(false);
   const [memo, setMemo] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
@@ -36,6 +39,10 @@ export function NewMeasurementPage() {
       }),
     onSuccess: (session) => void navigate(`/measurements/${session.sessionId}/live`),
   });
+
+  const bothSelected = Boolean(leftDeviceId && rightDeviceId);
+  // 0-based. 양발을 고르기 전엔 1단계, 골랐으면 2단계(전송률 확인 후 계속), 3단계는 live 화면의 '측정 시작'.
+  const activeStep = bothSelected ? 1 : 0;
 
   const handleSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -68,16 +75,27 @@ export function NewMeasurementPage() {
         title="새 측정 준비"
         description="양쪽 인솔을 선택하고 연결 상태를 확인하세요."
       />
-      <ol className="stepper" aria-label="측정 준비 단계">
-        <li className="stepper__active">
-          <span>1</span>인솔 선택
-        </li>
-        <li>
-          <span>2</span>준비 확인
-        </li>
-        <li>
-          <span>3</span>측정 시작
-        </li>
+      <ol className="stepper stepper--setup" aria-label="측정 준비 단계">
+        {SETUP_STEPS.map((label, index) => {
+          const state = index < activeStep ? 'done' : index === activeStep ? 'active' : 'todo';
+          return (
+            <li
+              aria-current={state === 'active' ? 'step' : undefined}
+              className={
+                state === 'done'
+                  ? 'stepper__done'
+                  : state === 'active'
+                    ? 'stepper__active'
+                    : undefined
+              }
+              key={label}
+            >
+              <span aria-hidden="true">{state === 'done' ? <Icon name="check" /> : index + 1}</span>
+              <span className="sr-only">{`${index + 1}단계${state === 'done' ? ' 완료' : ''}: `}</span>
+              {label}
+            </li>
+          );
+        })}
       </ol>
       {devices.isPending ? <Spinner label="사용 가능한 인솔 확인 중" /> : null}
       {devices.isError ? (
@@ -191,6 +209,16 @@ export function NewMeasurementPage() {
                 <li>통증이나 어지럼이 느껴지면 바로 측정을 중단하세요.</li>
                 <li>연결이 불안정하면 Receiver와 인솔 상태를 먼저 확인하세요.</li>
               </ul>
+              <p className="readiness-card__protocol">
+                <Icon name="clock" />
+                <span>
+                  <strong>측정을 시작하면 2초간 가만히 서 있어 주세요.</strong>
+                  <small>
+                    정강이 IMU 기준 자세는 측정 시작 직후 정지 구간에서 자동으로 잡힙니다. 그 뒤
+                    평소처럼 걸으면 됩니다.
+                  </small>
+                </span>
+              </p>
             </div>
           </section>
           {formError ? (

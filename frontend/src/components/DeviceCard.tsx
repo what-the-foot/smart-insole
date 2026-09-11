@@ -2,13 +2,13 @@ import type { DeviceResponse } from '../api/types';
 import { formatDateTime } from '../utils/format';
 import { batteryLabel, deviceStatusLabels } from '../utils/labels';
 import { Icon } from './Icon';
-import { StatusBadge } from './StatusUi';
+import { StatusBadge, type StatusBadgeTone } from './StatusUi';
 
-const statusTone = (status: DeviceResponse['status']) => {
-  if (status === 'ACTIVE') return 'positive' as const;
-  if (status === 'CALIBRATION_REQUIRED') return 'warning' as const;
-  if (status === 'DISCONNECTED') return 'danger' as const;
-  return 'neutral' as const;
+const statusTone = (status: DeviceResponse['status']): StatusBadgeTone => {
+  if (status === 'ACTIVE') return 'positive';
+  if (status === 'CALIBRATION_REQUIRED') return 'warning';
+  if (status === 'DISCONNECTED') return 'danger';
+  return 'neutral';
 };
 
 const calibrationLabel = (version: string | null | undefined): string => {
@@ -18,6 +18,13 @@ const calibrationLabel = (version: string | null | undefined): string => {
 
 const CURRENT_ADC_MAX = 4095;
 
+// heartbeat 배터리 퍼센트(0..100). 미보정(255)은 null로 오므로 막대를 비운다.
+const batteryFillPercent = (device: Pick<DeviceResponse, 'lastBatteryPercent'>): number | null => {
+  const percent = device.lastBatteryPercent ?? null;
+  if (percent === null || !Number.isFinite(percent)) return null;
+  return Math.min(100, Math.max(0, percent));
+};
+
 export function DeviceCard({
   device,
   compact = false,
@@ -25,10 +32,14 @@ export function DeviceCard({
   device: DeviceResponse;
   compact?: boolean;
 }) {
+  const side = device.footSide === 'LEFT' ? 'left' : 'right';
+  const fill = batteryFillPercent(device);
   return (
-    <article className={`device-card${compact ? ' device-card--compact' : ''}`}>
+    <article
+      className={`device-card device-card--${side}${compact ? ' device-card--compact' : ''}`}
+    >
       <div className="device-card__top">
-        <span className={`device-side device-side--${device.footSide.toLowerCase()}`}>
+        <span aria-hidden="true" className={`device-side device-side--${side}`}>
           {device.footSide === 'LEFT' ? 'L' : 'R'}
         </span>
         <div>
@@ -38,6 +49,16 @@ export function DeviceCard({
         <StatusBadge tone={statusTone(device.status)}>
           {deviceStatusLabels[device.status]}
         </StatusBadge>
+      </div>
+      <div className={`device-battery${fill === null ? ' device-battery--unknown' : ''}`}>
+        <span aria-hidden="true" className="device-battery__icon">
+          <Icon name="battery" />
+        </span>
+        <span className="device-battery__label">마지막 배터리</span>
+        <span aria-hidden="true" className="device-battery__track">
+          <span className="device-battery__fill" style={{ width: `${fill ?? 0}%` }} />
+        </span>
+        <span className="device-battery__value">{batteryLabel(device)}</span>
       </div>
       <dl className="device-meta">
         <div>
@@ -71,8 +92,8 @@ export function DeviceCard({
               <dd>{device.adcMax}</dd>
             </div>
             <div>
-              <dt>마지막 배터리</dt>
-              <dd>{batteryLabel(device)}</dd>
+              <dt>등록일</dt>
+              <dd>{formatDateTime(device.registeredAt)}</dd>
             </div>
           </>
         ) : null}

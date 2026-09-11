@@ -50,7 +50,7 @@ app:
     sample-rate-mismatch-tolerance: 0.30
     retry-after-seconds: 2
   analysis:
-    algorithm-version: rule-v1.2.0
+    algorithm-version: rule-v1.4.0
     defaults-are-functional-test-values: true
     # Fallback ADC scale only; every session snapshots devices.adc_max (4095 for new registrations).
     adc-max-value: 4095
@@ -71,5 +71,17 @@ app:
     min-observation-windows: 4
     poor-quality-score-threshold: 60
     max-attempts: 2
+    # rule-v1.4.0 IMU shank movement stage (DEC-036): quiet-standing reference detection, coverage gate,
+    # mid-stance part of a contact window, int16 saturation and the FIRST_STANCE fallback window count.
+    # Functional-test values without clinical validation.
+    movement:
+      quiet-min-seconds: 1.0
+      quiet-gyro-dps-max: 10.0
+      quiet-accel-deviation-g-max: 0.1
+      min-imu-coverage: 0.5
+      mid-stance-start-fraction: 0.30
+      mid-stance-end-fraction: 0.60
+      saturation-threshold: 32760
+      fallback-window-count: 3
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}

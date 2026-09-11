@@ -7,7 +7,7 @@ import com.smartinsole.global.config.AnalysisProperties;
  * threshold does not touch every test constructor.
  */
 public final class TestAnalysisProperties {
-    public static final String ALGORITHM_VERSION = "rule-v1.2.0";
+    public static final String ALGORITHM_VERSION = "rule-v1.4.0";
 
     private TestAnalysisProperties() {
     }
@@ -27,6 +27,6 @@ public final class TestAnalysisProperties {
     private static AnalysisProperties withMinObservationWindows(String algorithmVersion, int minObservationWindows) {
         return new AnalysisProperties(algorithmVersion, true, 4095, 30.0, 3.75,
                 10.0, 0.60, 0.60, 0.60, 0.55, 5.0,
-                0.20, 0.60, minObservationWindows, 60, 2);
+                0.20, 0.60, minObservationWindows, 60, 2, AnalysisProperties.Movement.defaults());
     }
 }

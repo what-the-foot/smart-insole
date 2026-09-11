@@ -2,21 +2,56 @@
 
 ## 목표 패키지
 
+도메인 패키지 아래에 계층 패키지를 둔다(DEC-034, 2026-09-10 적용).
+
 ```text
 com.smartinsole
-├── global
-│   ├── config
-│   ├── error
-│   ├── security
-│   └── common
+├── SmartInsoleApplication
+├── global                      # 도메인 공통, 구조 유지
+│   ├── common                  # DomainTypes(enum)
+│   ├── config                  # app.* 속성 record, Async·Time 설정
+│   ├── error                   # ErrorCode, BusinessException, GlobalExceptionHandler, TraceIdFilter
+│   └── security                # SecurityConfig, JWT·Receiver Key 필터
 ├── auth
+│   ├── controller              # AuthController
+│   ├── service                 # AuthService, SeedAccountInitializer
+│   └── dto                     # AuthDtos
 ├── user
+│   ├── domain                  # UserAccount
+│   └── repository              # UserRepository
 ├── device
+│   ├── controller              # DeviceController
+│   ├── service                 # DeviceService
+│   ├── domain                  # Device, SensorLayout
+│   ├── repository              # DeviceRepository, SensorLayoutRepository
+│   └── dto                     # DeviceDtos
 ├── calibration
+│   ├── domain                  # CalibrationProfile
+│   └── repository              # CalibrationProfileRepository
 ├── measurement
+│   ├── controller              # MeasurementController, PressureFrameBatchController, ReceiverSessionController
+│   ├── service                 # MeasurementService, PressureFrameIngestionService, QualityService, ReceiverSessionQueryService
+│   ├── domain                  # MeasurementSession, MeasurementQualityStats, PressureFrameEntity
+│   ├── repository              # MeasurementSessionRepository, PressureFrameRepository, MeasurementQualityRepository, HistoryProjectionRepository
+│   └── dto                     # MeasurementDtos, IngestionDtos
 ├── realtime
+│   ├── controller              # RealtimeController
+│   ├── service                 # RealtimeService, RealtimeSnapshotStore, RealtimeDisconnectScheduler
+│   ├── config                  # WebSocketConfig
+│   ├── security                # StompAuthorizationInterceptor
+│   └── dto                     # RealtimeDtos
 ├── analysis
+│   ├── controller              # AnalysisResultController
+│   ├── service                 # AnalysisCoordinator, AnalysisRunner, AnalysisJobStateService, AnalysisPersistenceService, AnalysisResultQueryService, AnalysisPendingJobScheduler
+│   ├── domain                  # AnalysisJob, AnalysisResult, AnalysisPattern, RuleBasedAnalyzer, PatternCatalog
+│   ├── repository              # AnalysisJobRepository, AnalysisResultRepository, AnalysisPatternRepository
+│   └── dto                     # AnalysisDtos
 └── recommendation
+    ├── controller              # RecommendationController
+    ├── service                 # RecommendationService
+    ├── domain                  # Recommendation, ResultRecommendation
+    ├── repository              # RecommendationRepository
+    └── dto                     # RecommendationDtos
 ```
 
 ## BE-001 프로젝트 기반

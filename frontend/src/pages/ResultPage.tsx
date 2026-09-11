@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { queryKeys, useMeasurement } from '../api/queries';
+import { queryKeys, useDevices, useMeasurement, useSensorLayout } from '../api/queries';
 import { measurementApi } from '../api/services';
 import { ApiError } from '../api/client';
+import { Icon } from '../components/Icon';
 import { ErrorPanel, Spinner, StatePanel } from '../components/StatusUi';
+import { sensorLayoutStatus } from '../features/realtime/layoutStatus';
 import { ResultContent } from '../features/results/ResultContent';
 import { RESULT_POLL_INTERVAL_MS, shouldPollResult } from '../features/results/resultPolling';
 
@@ -22,6 +24,23 @@ export function ResultPage() {
     retry: (failureCount, error) =>
       !(error instanceof ApiError && error.status !== null && error.status < 500) &&
       failureCount < 2,
+  });
+  // 세션 평균 히트맵은 세션에 쓰인 기기의 센서 배치를 쓴다. 배치를 못 받아도 결과 표시는 막지 않는다.
+  const devices = useDevices();
+  const leftDevice = devices.data?.find(
+    (device) => device.deviceId === measurement.data?.leftDeviceId,
+  );
+  const rightDevice = devices.data?.find(
+    (device) => device.deviceId === measurement.data?.rightDeviceId,
+  );
+  const leftLayout = useSensorLayout(leftDevice?.sensorLayoutVersion);
+  const rightLayout = useSensorLayout(rightDevice?.sensorLayoutVersion);
+  // 기기가 목록에 없거나(삭제·타인 기기) 조회가 실패하면 '불러오는 중'이 아니라 확인 불가 안내를 보여준다.
+  const leftLayoutStatus = sensorLayoutStatus({ layout: leftLayout, devices, device: leftDevice });
+  const rightLayoutStatus = sensorLayoutStatus({
+    layout: rightLayout,
+    devices,
+    device: rightDevice,
   });
 
   if (!sessionId)
@@ -85,7 +104,16 @@ export function ResultPage() {
     return <ErrorPanel error={result.error} retry={() => void result.refetch()} />;
   if (result.data.kind === 'processing')
     return <ProcessingPanel message={result.data.data.message} />;
-  return <ResultContent result={result.data.data} session={measurement.data} />;
+  return (
+    <ResultContent
+      leftLayout={leftLayout.data}
+      leftLayoutStatus={leftLayoutStatus}
+      result={result.data.data}
+      rightLayout={rightLayout.data}
+      rightLayoutStatus={rightLayoutStatus}
+      session={measurement.data}
+    />
+  );
 }
 
 function ProcessingPanel({
@@ -99,7 +127,7 @@ function ProcessingPanel({
         <span />
         <span />
         <span />
-        <div className="processing-foot" />
+        <Icon name="foot" />
       </div>
       <p className="eyebrow">ANALYSIS IN PROGRESS</p>
       <h1>걸음 패턴을 정리하고 있어요.</h1>

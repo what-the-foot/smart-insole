@@ -509,6 +509,26 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             primaryPatternCode: string | null;
+            /** @description (계약 1.2.0) 세션의 최신 분석 결과 algorithmVersion. COMPLETED가 아니거나 결과가 없으면 null. */
+            algorithmVersion?: string | null;
+            /** @description (계약 1.2.0) 최신 분석 결과의 dataQuality.level. 결과가 없으면 null. */
+            dataQualityLevel?: components["schemas"]["QualityLevel"] | null;
+            /** @description (계약 1.2.0) 최신 분석 결과의 gaitSummary.symmetryIndex. 결과가 없으면 null. */
+            symmetryIndex?: number | null;
+            /** @description (계약 1.2.0) 최신 분석 결과의 gaitSummary.cadence(회/분). 결과가 없으면 null. */
+            cadence?: number | null;
+            /** @description (계약 1.2.0) 최신 분석 결과의 gaitSummary.leftContactTimeMs. 결과가 없으면 null. */
+            leftContactTimeMs?: number | null;
+            /** @description (계약 1.2.0) 최신 분석 결과의 gaitSummary.rightContactTimeMs. 결과가 없으면 null. */
+            rightContactTimeMs?: number | null;
+            /** @description (계약 1.2.0) 최신 분석 결과의 gaitSummary.validStepCount. 결과가 없거나 rule-v1.1.0 이전 결과면 null. */
+            validStepCount?: number | null;
+            /** @description (계약 1.2.0) 최신 분석 결과의 pressureDistribution.leftLoadSharePct(좌우 신호 비율, 왼발). 결과가 없거나 rule-v1.3.0 이전 결과면 null. */
+            leftLoadSharePct?: number | null;
+            /** @description (계약 1.2.0) 최신 분석 결과의 pressureDistribution.rightLoadSharePct(좌우 신호 비율, 오른발). 결과가 없거나 rule-v1.3.0 이전 결과면 null. */
+            rightLoadSharePct?: number | null;
+            /** @description (계약 1.2.0) 최신 분석 결과의 gaitSummary.meanStrideTimeMs. 결과가 없거나 rule-v1.3.0 이전 결과면 null. */
+            meanStrideTimeMs?: number | null;
         };
         /** @description int16 3축 벡터 (x, y, z). */
         ImuVector: number[];
@@ -690,6 +710,12 @@ export interface components {
             leftContactTimeMs: number;
             rightContactTimeMs: number;
             symmetryIndex: number;
+            /** @description (rule-v1.3.0) 왼발 스트라이드 시간 추정값(ms). 같은 발의 연속 접촉 구간 시작-시작 간격(deviceTimeMs 기준)의 중앙값. 접촉 구간이 2개 미만이거나 이전 결과면 null. 접촉 구간 기반 추정값이며 임상 검증된 보행 주기가 아닙니다. */
+            leftStrideTimeMs?: number | null;
+            /** @description (rule-v1.3.0) 오른발 스트라이드 시간 추정값(ms). 정의는 leftStrideTimeMs와 같음. 접촉 구간이 2개 미만이거나 이전 결과면 null. */
+            rightStrideTimeMs?: number | null;
+            /** @description (rule-v1.3.0) 좌우 스트라이드 시간의 평균(ms). 둘 다 있으면 (left+right)/2, 한쪽만 있으면 그 값, 둘 다 null이면 null. */
+            meanStrideTimeMs?: number | null;
         };
         PressureDistribution: {
             leftMedialRatio: number;
@@ -716,6 +742,10 @@ export interface components {
             leftSensorSharePct?: components["schemas"]["SensorSharePct"] | null;
             /** @description (rule-v1.2.0) 오른발 센서별 share. 접촉 프레임이 없거나 이전 결과면 null. */
             rightSensorSharePct?: components["schemas"]["SensorSharePct"] | null;
+            /** @description (rule-v1.3.0) 좌우 신호 비율(왼발). 각 발의 접촉 프레임 평균 전체합을 L, R이라 할 때 L/(L+R)×100. 힘·체중이 아닌 상대 신호 비율이며, 어느 한 발이라도 접촉 구간이 없거나 이전 결과면 null. 양발 센서 수가 다르면 두 값 모두 null. */
+            leftLoadSharePct?: number | null;
+            /** @description (rule-v1.3.0) 좌우 신호 비율(오른발). R/(L+R)×100이며 leftLoadSharePct와 합이 100. 어느 한 발이라도 접촉 구간이 없거나 이전 결과면 null. 양발 센서 수가 다르면 두 값 모두 null. */
+            rightLoadSharePct?: number | null;
         };
         SensorSharePct: number[] & (unknown | unknown);
         /**
@@ -760,11 +790,55 @@ export interface components {
             cautionText: string;
             relatedPatternCodes: string[];
         };
+        /**
+         * @description (rule-v1.4.0) 정강이 기준 자세를 잡은 방법. QUIET_STANDING = 세션 첫 프레임부터 찾은 첫 1.0초 이상의 정지 구간(모든 프레임이 |gyro| < 10 dps, ||a|−1 g| < 0.1 g, 양발 압력 접촉). up = 정규화한 평균 가속도, 자이로 바이어스 = 평균 자이로. FIRST_STANCE = 정지 구간이 없을 때 발별 처음 3개 접촉 창의 중간 입각기(창의 30~60 %) 프레임 평균, 자이로 바이어스 0. 기준을 잡지 못하면 MovementSummary.referenceMethod는 null.
+         * @enum {string}
+         */
+        MovementReferenceMethod: "QUIET_STANDING" | "FIRST_STANCE";
+        /**
+         * @description (rule-v1.4.0) 한 발 쪽 정강이의 움직임 요약. IMU 보드는 인솔 안이 아니라 그 발의 외측 발목/정강이에 장착되므로
+         *     정강이 분절의 운동만 나타내며 발 관절 각도가 아닙니다. 기능 검증용 지표입니다.
+         *     보드 장착 방향은 세션마다 자동 정렬합니다: e = 바이어스 보정 자이로의 주성분(PCA) 벡터를 up과 직교화·정규화하고,
+         *     유각기 프레임의 median(gyro·e) > 0이면 e = −e(앞으로 내딛는 회전이 e 기준 음의 회전이 되도록); ml_left = e,
+         *     forward = ml_left × up. lateral = 왼발 +ml_left, 오른발 −ml_left(좌우 보드는 외측에 거울 대칭으로 장착).
+         *     창(window) = 압력 접촉 구간(유효 걸음). int16 포화(|값| ≥ 32760) 프레임은 해당 창에서 제외합니다.
+         */
+        MovementFootSummary: {
+            /** @description (rule-v1.4.0) 표시 용어: 정강이 좌우 기울기(중간 입각기). 각 접촉 창의 중간 입각기(창의 30~60 %) 프레임 평균 가속도를 정규화한 g로 atan2(g·lateral, g·up)(도)를 구해 기준 자세 대비 전두면 정강이 기울기로 삼고, 창 전체에서 평균한 값. + = 바깥쪽(lateral) 기울기, − = 안쪽(medial) 기울기. 사용 가능한 창이 없으면 null. */
+            frontalTiltDeg: number | null;
+            /** @description (rule-v1.4.0) 표시 용어: 입각기 정강이 전후 회전 범위. 접촉 창 안에서 내외측 축 성분 자이로(gyro·ml_left, °/s)를 사다리꼴 누적 적분한 정강이 각도 시계열의 범위(최대−최소, 도)를 창별로 구해 중앙값을 취한 값. 사용 가능한 창이 없으면 null. */
+            sagittalRangeDeg: number | null;
+            /** @description (rule-v1.4.0) 표시 용어: 입각기 정강이 수평 회전 범위. 접촉 창 안에서 수직 축 성분 자이로(gyro·up, °/s)를 사다리꼴 누적 적분한 각도 시계열의 범위(도)를 창별로 구해 중앙값을 취한 값. 사용 가능한 창이 없으면 null. */
+            transverseRangeDeg: number | null;
+            /** @description (rule-v1.4.0) 표시 용어: 유각기 최대 각속도. 같은 발의 연속 접촉 창 사이(유각기)에서 |gyro·ml_left|의 최댓값(°/s)을 구간별로 구해 중앙값을 취한 값. 유각기 구간이 없으면 null. */
+            swingPeakAngularVelocityDps: number | null;
+            /** @description (rule-v1.4.0) IMU를 사용할 수 있었던 접촉 창(유효 걸음) 수. 정지 기준 자세(QUIET_STANDING) 구간과 겹치는 창은 세지 않습니다. 0이면 이 발의 네 지표는 모두 null이며, 기준 자세는 잡았지만 자이로 회전이 없어 축 정렬을 못 했거나 접촉 창이 2개 미만이라 유각기 구간이 없는 경우도 0입니다. */
+            windowCount: number;
+        };
+        /**
+         * @description (rule-v1.4.0, 계약 1.3.0) IMU 기반 정강이 움직임 요약. IMU(LSM6DS3TR-C, XIAO nRF52840 Sense)는 인솔 안이 아니라
+         *     외측 발목/정강이에 장착한 보드에 있어 정강이 분절의 운동만 나타내며, 발 관절 각도나 발의 진행 방향은 산출하지 않습니다.
+         *     기능 검증용 지표이며 임계값·기준 자세 규칙은 임상 검증되지 않았습니다. 참고 범위나 판정 문구를 붙이지 않습니다.
+         *     객체 전체가 null: rule-v1.4.0 이전 결과, IMU 프레임이 없는 세션. left/right가 null: imuCoverage < 0.5 또는 그 발의 기준 자세를
+         *     잡지 못한 경우(양발 모두 실패하면 referenceMethod null). 기준 자세는 잡았지만 축 정렬을 못 했거나(자이로 회전 없음) 유각기 구간이
+         *     없는 발은 null이 아니라 windowCount 0과 네 지표 null로 내려갑니다.
+         */
+        MovementSummary: {
+            /** @description (rule-v1.4.0) 양발의 저장 프레임 중 imuAvailable=true이고 accelMg·gyroDps10이 모두 있는 프레임의 비율(0..1). */
+            imuCoverage: number;
+            /** @description (rule-v1.4.0) 정강이 기준 자세를 잡은 방법. 양발 모두 기준을 잡지 못하면 null이며 이때 left/right도 null. 축 정렬 실패는 기준 방법을 바꾸지 않습니다(그 발은 windowCount 0). */
+            referenceMethod: components["schemas"]["MovementReferenceMethod"] | null;
+            /** @description (rule-v1.4.0) 왼발 쪽 정강이 요약. imuCoverage < 0.5, 이 발의 기준 자세 실패 시 null. 축 정렬 실패·유각기 구간 없음은 null이 아니라 windowCount 0. */
+            left: components["schemas"]["MovementFootSummary"] | null;
+            /** @description (rule-v1.4.0) 오른발 쪽 정강이 요약. imuCoverage < 0.5, 이 발의 기준 자세 실패 시 null. 축 정렬 실패·유각기 구간 없음은 null이 아니라 windowCount 0. */
+            right: components["schemas"]["MovementFootSummary"] | null;
+        };
         AnalysisResultResponse: {
             /** Format: uuid */
             sessionId: string;
             /** @enum {string} */
             status: "COMPLETED";
+            /** @description 결과를 계산한 알고리즘 버전(현재 rule-v1.4.0). 이전 버전 결과는 재해석하지 않고 그대로 반환합니다. */
             algorithmVersion: string;
             dataQuality: components["schemas"]["DataQualityResult"];
             gaitSummary: components["schemas"]["GaitSummary"];
@@ -772,6 +846,8 @@ export interface components {
             patterns: components["schemas"]["PatternResult"][];
             /** @description rule-v1.2.0 이상에서 6종 코드 전체의 관찰 단계. 이전 알고리즘 결과는 null. */
             observationSummary?: components["schemas"]["ObservationSummaryItem"][] | null;
+            /** @description (rule-v1.4.0, 계약 1.3.0) IMU 기반 정강이 움직임 요약(기능 검증용). rule-v1.4.0 이전 결과와 IMU 프레임이 없는 세션은 null. 백엔드는 키를 생략하지 않고 null 값으로 내보냅니다. */
+            movementSummary?: components["schemas"]["MovementSummary"] | null;
             recommendations: components["schemas"]["RecommendationSummary"][];
             disclaimer: string;
             /** Format: date-time */

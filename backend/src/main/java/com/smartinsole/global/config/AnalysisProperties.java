@@ -3,8 +3,8 @@ package com.smartinsole.global.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Rule-based analysis thresholds (rule-v1.2.0). All values are functional-test defaults, not
- * clinically validated.
+ * Rule-based analysis thresholds (rule-v1.2.0 pressure rules plus the rule-v1.4.0 IMU shank movement
+ * stage in {@link Movement}). All values are functional-test defaults, not clinically validated.
  *
  * @param adcMaxValue                    fallback ADC scale when a session has no snapshot (sessions
  *                                       created since V5 always carry their own adcMax)
@@ -25,6 +25,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param minObservationWindows          fewer windows than this keeps every pattern NOT_OBSERVED
  * @param poorQualityScoreThreshold      quality score below which LOW_DATA_QUALITY is flagged and
  *                                       REMEASURE_GUIDE is recommended
+ * @param movement                       rule-v1.4.0 IMU shank movement thresholds (defaults when absent)
  */
 @ConfigurationProperties("app.analysis")
 public record AnalysisProperties(
@@ -43,7 +44,8 @@ public record AnalysisProperties(
         double repeatedObservationRate,
         int minObservationWindows,
         int poorQualityScoreThreshold,
-        int maxAttempts
+        int maxAttempts,
+        Movement movement
 ) {
     private static final int MAX_SENSORS = 8;
     private static final double MAX_NORMALIZED_VALUE = 100.0;
@@ -85,6 +87,9 @@ public record AnalysisProperties(
         if (maxAttempts < 1 || maxAttempts > 5) {
             throw new IllegalArgumentException("app.analysis.max-attempts must be between 1 and 5");
         }
+        if (movement == null) {
+            movement = Movement.defaults();
+        }
     }
 
     private static void requireRatio(String name, double value, double maximum) {
@@ -104,5 +109,62 @@ public record AnalysisProperties(
     /** Session ADC scale, falling back to the configured default when the session carries none. */
     public int adcMaxFor(int sessionAdcMax) {
         return sessionAdcMax > 0 ? sessionAdcMax : adcMaxValue;
+    }
+
+    /**
+     * rule-v1.4.0 IMU shank movement stage (DEC-036). The board sits on the lateral ankle/shank, so every
+     * value describes the shank segment; all thresholds are functional-test defaults without clinical
+     * validation.
+     *
+     * @param quietMinSeconds         minimum length of the quiet-standing reference interval
+     * @param quietGyroDpsMax         every reference frame must have |gyro| below this (deg/s)
+     * @param quietAccelDeviationGMax every reference frame must have ||a| - 1 g| below this (g)
+     * @param minImuCoverage          left/right summaries are null below this share of IMU frames
+     * @param midStanceStartFraction  start of the mid-stance part of a contact window (fraction of frames)
+     * @param midStanceEndFraction    end of the mid-stance part of a contact window (fraction of frames)
+     * @param saturationThreshold     int16 magnitude from which an IMU sample counts as saturated
+     * @param fallbackWindowCount     contact windows averaged for the FIRST_STANCE reference
+     */
+    public record Movement(
+            double quietMinSeconds,
+            double quietGyroDpsMax,
+            double quietAccelDeviationGMax,
+            double minImuCoverage,
+            double midStanceStartFraction,
+            double midStanceEndFraction,
+            int saturationThreshold,
+            int fallbackWindowCount
+    ) {
+        public Movement {
+            if (quietMinSeconds <= 0 || quietMinSeconds > 60) {
+                throw new IllegalArgumentException("app.analysis.movement.quiet-min-seconds must be within (0, 60]");
+            }
+            if (quietGyroDpsMax <= 0 || quietGyroDpsMax > 500) {
+                throw new IllegalArgumentException("app.analysis.movement.quiet-gyro-dps-max must be within (0, 500]");
+            }
+            if (quietAccelDeviationGMax <= 0 || quietAccelDeviationGMax > 1) {
+                throw new IllegalArgumentException(
+                        "app.analysis.movement.quiet-accel-deviation-g-max must be within (0, 1]");
+            }
+            if (minImuCoverage < 0 || minImuCoverage > 1) {
+                throw new IllegalArgumentException("app.analysis.movement.min-imu-coverage must be within [0, 1]");
+            }
+            if (midStanceStartFraction < 0 || midStanceEndFraction > 1 || midStanceStartFraction >= midStanceEndFraction) {
+                throw new IllegalArgumentException(
+                        "app.analysis.movement mid-stance fractions must satisfy 0 <= start < end <= 1");
+            }
+            if (saturationThreshold < 1 || saturationThreshold > 32767) {
+                throw new IllegalArgumentException(
+                        "app.analysis.movement.saturation-threshold must be within [1, 32767]");
+            }
+            if (fallbackWindowCount < 1) {
+                throw new IllegalArgumentException("app.analysis.movement.fallback-window-count must be at least 1");
+            }
+        }
+
+        /** application.yml defaults: 1.0 s, 10 dps, 0.1 g, coverage 0.5, mid-stance 30-60 %, 32760, 3 windows. */
+        public static Movement defaults() {
+            return new Movement(1.0, 10.0, 0.1, 0.5, 0.30, 0.60, 32760, 3);
+        }
     }
 }

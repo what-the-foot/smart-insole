@@ -1,14 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { queryKeys, useDevices, useMeasurement, useSensorLayout } from '../api/queries';
 import { measurementApi } from '../api/services';
 import type { QualityLevel } from '../api/types';
+import { usePreferences } from '../app/preferences';
+import { Donut } from '../components/charts';
 import { Icon } from '../components/Icon';
 import { SessionIdCopy } from '../components/SessionIdCopy';
 import { ErrorPanel, Spinner, StatePanel, StatusBadge } from '../components/StatusUi';
 import { ReauthDialog } from '../features/auth/ReauthDialog';
 import { FootPressureHeatmap, PressureLegend } from '../features/realtime/FootPressureHeatmap';
+import { sensorLayoutStatus } from '../features/realtime/layoutStatus';
 import {
   useRealtimeMeasurement,
   type RealtimeConnectionStatus,
@@ -48,6 +51,83 @@ const qualityTone = (quality: QualityLevel | undefined) =>
         ? ('warning' as const)
         : ('neutral' as const);
 
+// 정강이 움직임(기능 검증용) 기준 자세 프로토콜: 시작 직후 2초 정지 구간을 백엔드가 자동으로 잡는다(DEC-036).
+const STANDING_PROTOCOL_SECONDS = 2;
+const STANDING_PROTOCOL_TITLE = `정강이 움직임 기준 자세: ${STANDING_PROTOCOL_SECONDS}초간 가만히 서 있어 주세요`;
+const STANDING_PROTOCOL_HINT =
+  '정강이 IMU 기준 자세는 측정 시작 직후 정지 구간에서 자동으로 잡힙니다.';
+const STANDING_COUNTDOWN_TICK_MS = 1_000;
+const STANDING_COUNTDOWN_DONE_MS = 1_500;
+
+const SIMULATED_NOTICE =
+  '시뮬레이션 세션입니다. 실기기 데이터가 아니며 기록에도 시뮬레이션으로 표시됩니다.';
+
+// 2 → 1 → 완료(0) → 숨김(null). window.setTimeout 기반이라 테스트에서 fake timer로 진행할 수 있다.
+function useStandingCountdown() {
+  const [remaining, setRemaining] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (remaining === null) return;
+    const delay = remaining > 0 ? STANDING_COUNTDOWN_TICK_MS : STANDING_COUNTDOWN_DONE_MS;
+    const timer = window.setTimeout(() => {
+      setRemaining((current) => (current === null || current <= 0 ? null : current - 1));
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [remaining]);
+
+  return { remaining, begin: () => setRemaining(STANDING_PROTOCOL_SECONDS) };
+}
+
+function StandingCountdown({
+  remaining,
+  reduceMotion,
+}: {
+  remaining: number;
+  reduceMotion: boolean;
+}) {
+  const titleId = useId();
+  const done = remaining <= 0;
+  const progress = 1 - remaining / STANDING_PROTOCOL_SECONDS;
+  // 카드 전체가 아니라 남은 시간 문장만 live region으로 두어 틱마다 제목·eyebrow를 다시 읽지 않게 한다.
+  return (
+    <section
+      aria-labelledby={titleId}
+      className={`standing-countdown${done ? ' standing-countdown--done' : ''}${
+        reduceMotion ? ' standing-countdown--static' : ''
+      }`}
+    >
+      <div className="standing-countdown__ring" aria-hidden="true">
+        <svg viewBox="0 0 120 120">
+          <circle className="standing-countdown__track" cx="60" cy="60" r="52" />
+          <circle
+            className="standing-countdown__arc"
+            cx="60"
+            cy="60"
+            pathLength="100"
+            r="52"
+            strokeDasharray={`${Math.round(progress * 100)} ${Math.round((1 - progress) * 100)}`}
+            style={
+              reduceMotion ? undefined : { transitionDuration: `${STANDING_COUNTDOWN_TICK_MS}ms` }
+            }
+          />
+        </svg>
+        <strong className="standing-countdown__count">{done ? '완료' : remaining}</strong>
+      </div>
+      <div className="standing-countdown__body">
+        <p aria-hidden="true" className="standing-countdown__eyebrow">
+          STANDING REFERENCE
+        </p>
+        <h2 id={titleId}>{STANDING_PROTOCOL_TITLE}</h2>
+        <p role="status">
+          {done
+            ? '기준 자세 구간이 끝났습니다. 이제 평소처럼 걸어 주세요.'
+            : `남은 시간 ${remaining}초 · 양발을 바닥에 두고 움직이지 않습니다.`}
+        </p>
+      </div>
+    </section>
+  );
+}
+
 export function LiveMeasurementPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
@@ -57,6 +137,9 @@ export function LiveMeasurementPage() {
   const devices = useDevices();
   const live = useRealtimeMeasurement(sessionId ?? '', measurement.data?.status === 'MEASURING');
   const [reauthOpen, setReauthOpen] = useState(false);
+  const [{ reduceMotion }] = usePreferences();
+  const countdown = useStandingCountdown();
+  const balanceTitleId = useId();
 
   const leftDevice = devices.data?.find(
     (device) => device.deviceId === measurement.data?.leftDeviceId,
@@ -66,6 +149,12 @@ export function LiveMeasurementPage() {
   );
   const leftLayout = useSensorLayout(leftDevice?.sensorLayoutVersion);
   const rightLayout = useSensorLayout(rightDevice?.sensorLayoutVersion);
+  const leftLayoutStatus = sensorLayoutStatus({ layout: leftLayout, devices, device: leftDevice });
+  const rightLayoutStatus = sensorLayoutStatus({
+    layout: rightLayout,
+    devices,
+    device: rightDevice,
+  });
 
   const reconcileControlOutcome = async () => {
     if (!sessionId) return;
@@ -108,6 +197,11 @@ export function LiveMeasurementPage() {
   });
   const start = useMutation({
     mutationFn: () => measurementApi.start(sessionId ?? ''),
+    onSuccess: (session) => {
+      // 시작 응답(MEASURING)을 바로 캐시에 반영해 정지 구간 카운트다운이 실시간 화면과 함께 뜨게 한다.
+      if (sessionId) queryClient.setQueryData(queryKeys.measurement(sessionId), session);
+      countdown.begin();
+    },
     onSettled: () => {
       if (sessionId)
         void queryClient.invalidateQueries({ queryKey: queryKeys.measurement(sessionId) });
@@ -150,7 +244,7 @@ export function LiveMeasurementPage() {
     );
   if (measurement.data.status === 'CREATED') {
     return (
-      <div className="page-stack">
+      <div className="page-stack live-ready">
         <StatePanel
           icon="activity"
           title="측정을 시작할 준비가 되었어요"
@@ -174,10 +268,17 @@ export function LiveMeasurementPage() {
             </>
           }
         />
+        <p className="live-protocol-hint">
+          <Icon name="clock" />
+          <span>
+            <strong>측정을 시작하면 {STANDING_PROTOCOL_SECONDS}초간 가만히 서 있어 주세요.</strong>{' '}
+            {STANDING_PROTOCOL_HINT}
+          </span>
+        </p>
         {measurement.data.sourceType === 'SIMULATED' ? (
           <p className="notice notice--info" role="status">
             <Icon name="alert" />
-            시뮬레이션 세션입니다. 실기기 데이터가 아니며 기록에도 시뮬레이션으로 표시됩니다.
+            {SIMULATED_NOTICE}
           </p>
         ) : null}
       </div>
@@ -221,21 +322,23 @@ export function LiveMeasurementPage() {
 
   const quality = live.message?.quality;
   const actionPending = complete.isPending || cancel.isPending;
+  const centerLabel = balance
+    ? `${Math.round(balance.left * 100)} : ${Math.round(balance.right * 100)}`
+    : '—';
   return (
     <div className="live-page">
-      <header className="live-header">
-        <div>
+      <header className="live-header live-topbar">
+        <div className="live-topbar__title">
           <p className="eyebrow">LIVE MEASUREMENT</p>
           <div className="live-title">
             <span className="live-dot" aria-hidden="true" />
             <h1>측정 중</h1>
-            <strong>{formatDuration(live.message?.elapsedTimeMs ?? 0)}</strong>
+            <strong className="live-elapsed">
+              {formatDuration(live.message?.elapsedTimeMs ?? 0)}
+            </strong>
           </div>
         </div>
-        <div className="live-statuses" aria-live="polite">
-          <StatusBadge tone={measurement.data.sourceType === 'SIMULATED' ? 'neutral' : 'info'}>
-            {sessionSourceBadge(measurement.data)}
-          </StatusBadge>
+        <div className="live-statuses live-status-strip">
           <StatusBadge tone={connectionTone(live.connectionStatus)}>
             <span className="badge-dot" />
             연결 {connectionLabel[live.connectionStatus]}
@@ -244,13 +347,30 @@ export function LiveMeasurementPage() {
             품질 {quality ? qualityLabels[quality.level] : '확인 중'}
             {quality ? ` · ${quality.score}` : ''}
           </StatusBadge>
+          <StatusBadge tone={measurement.data.sourceType === 'SIMULATED' ? 'neutral' : 'info'}>
+            {sessionSourceBadge(measurement.data)}
+          </StatusBadge>
         </div>
+        {/* 품질 점수는 10~20Hz로 바뀌므로 연결 상태·품질 단계 전이만 낭독한다(점수는 배지에만). */}
+        <p className="sr-only" role="status">
+          {`연결 ${connectionLabel[live.connectionStatus]} · 품질 ${
+            quality ? qualityLabels[quality.level] : '확인 중'
+          }`}
+        </p>
       </header>
+
+      {countdown.remaining !== null ? (
+        <StandingCountdown reduceMotion={reduceMotion} remaining={countdown.remaining} />
+      ) : null}
+      <p className="live-protocol-hint">
+        <Icon name="clock" />
+        <span>{STANDING_PROTOCOL_HINT}</span>
+      </p>
 
       {measurement.data.sourceType === 'SIMULATED' ? (
         <p className="notice notice--info" role="status">
           <Icon name="alert" />
-          시뮬레이션 세션입니다. 실기기 데이터가 아니며 기록에도 시뮬레이션으로 표시됩니다.
+          {SIMULATED_NOTICE}
         </p>
       ) : null}
       <SessionIdCopy sessionId={sessionId} />
@@ -286,7 +406,7 @@ export function LiveMeasurementPage() {
       ) : null}
       <ReauthDialog onClose={() => setReauthOpen(false)} open={reauthOpen} reason="EXPIRED" />
       {quality?.flags.length ? (
-        <div className="quality-flags" aria-label="데이터 품질 알림">
+        <div className="quality-flags" role="group" aria-label="데이터 품질 알림">
           {quality.flags.map((flag) => (
             <p key={flag}>
               <Icon name="alert" />
@@ -296,19 +416,24 @@ export function LiveMeasurementPage() {
         </div>
       ) : null}
 
-      <section className="heatmap-section" aria-label="양발 실시간 센서 신호">
+      <section className="heatmap-section live-heatmaps" aria-label="양발 실시간 센서 신호">
         <FootPressureHeatmap
           data={live.left}
           disconnected={live.leftDisconnected || live.dataStale}
           layout={leftLayout.data}
+          layoutStatus={leftLayoutStatus}
           side="LEFT"
         />
         <FootPressureHeatmap
           data={live.right}
           disconnected={live.rightDisconnected || live.dataStale}
           layout={rightLayout.data}
+          layoutStatus={rightLayoutStatus}
           side="RIGHT"
         />
+        <aside className="live-legend">
+          <PressureLegend orientation="vertical" />
+        </aside>
       </section>
       {leftLayout.isError || rightLayout.isError ? (
         <p className="form-error" role="alert">
@@ -317,35 +442,39 @@ export function LiveMeasurementPage() {
         </p>
       ) : null}
 
-      <section className="live-comparison content-card" aria-labelledby="balance-title">
-        <div>
+      <section
+        className="live-comparison live-balance content-card"
+        aria-labelledby={balanceTitleId}
+      >
+        <div className="live-balance__intro">
           <p className="eyebrow">BILATERAL BALANCE</p>
-          <h2 id="balance-title">현재 좌우 신호 비율</h2>
+          <h2 id={balanceTitleId}>현재 좌우 신호 비율</h2>
           <p>한 시점의 상대 총 신호 비교이며 의료적 판단 기준이 아닙니다.</p>
         </div>
-        <div
-          className="balance-meter"
-          aria-label={
-            balance
-              ? `왼발 ${formatPercent(balance.left)}, 오른발 ${formatPercent(balance.right)}`
-              : '아직 좌우 신호 비율을 계산할 수 없습니다.'
-          }
-        >
-          <div className="balance-meter__labels">
-            <strong>L {balance ? formatPercent(balance.left) : '—'}</strong>
-            <strong>R {balance ? formatPercent(balance.right) : '—'}</strong>
-          </div>
-          <div className="balance-meter__track" aria-hidden="true">
-            <span style={{ width: `${(balance?.left ?? 0.5) * 100}%` }} />
-          </div>
+        <div className="live-balance__donut">
+          <Donut
+            ariaLabel={
+              balance
+                ? `왼발 ${formatPercent(balance.left)}, 오른발 ${formatPercent(balance.right)}`
+                : '아직 좌우 신호 비율을 계산할 수 없습니다.'
+            }
+            centerLabel={centerLabel}
+            leftPct={balance ? balance.left * 100 : 0}
+            rightPct={balance ? balance.right * 100 : 0}
+            size={132}
+          />
         </div>
-        <p className="session-peak">
-          세션 {resultTerms.peakSignal}: L{' '}
-          {live.leftPeak === null ? '—' : Math.round(live.leftPeak)} · R{' '}
-          {live.rightPeak === null ? '—' : Math.round(live.rightPeak)}{' '}
-          <small>(0–100 상대값, 세션 시작 이후 누적)</small>
-        </p>
-        <PressureLegend />
+        <dl className="live-balance__peaks session-peak">
+          <div>
+            <dt>세션 {resultTerms.peakSignal} · L</dt>
+            <dd>{live.leftPeak === null ? '—' : Math.round(live.leftPeak)}</dd>
+          </div>
+          <div>
+            <dt>세션 {resultTerms.peakSignal} · R</dt>
+            <dd>{live.rightPeak === null ? '—' : Math.round(live.rightPeak)}</dd>
+          </div>
+          <small>0–100 상대값, 세션 시작 이후 누적</small>
+        </dl>
       </section>
 
       {complete.isError || cancel.isError ? (
@@ -354,7 +483,7 @@ export function LiveMeasurementPage() {
           {(complete.error ?? cancel.error)?.message} 측정 상태를 확인한 뒤 다시 시도해 주세요.
         </p>
       ) : null}
-      <div className="measurement-controls" aria-label="측정 제어">
+      <section className="measurement-controls" aria-label="측정 제어">
         <div>
           <strong>안전하게 측정하고 있나요?</strong>
           <p>통증이나 불편함이 있으면 즉시 종료하세요.</p>
@@ -386,7 +515,7 @@ export function LiveMeasurementPage() {
             )}
           </button>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

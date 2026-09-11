@@ -18,6 +18,9 @@ const signoutReasonNotices: Record<SignoutReason, string | null> = {
   USER: null,
 };
 
+const BRAND_NAME = '바른걸음';
+const BRAND_TAGLINE = 'Smart Insole for Better Steps';
+
 export function SigninPage() {
   const { signin } = useAuth();
   const navigate = useNavigate();
@@ -53,11 +56,14 @@ export function SigninPage() {
   return (
     <main className="auth-page">
       <section className="auth-intro" aria-label="서비스 소개">
-        <Link className="brand brand--light" to="/login">
+        <Link className="brand brand--light auth-brand" to="/login">
           <span className="brand__mark">
-            <Icon name="activity" />
+            <Icon name="foot" />
           </span>
-          <span>바른걸음</span>
+          <span className="brand__text">
+            <strong>{BRAND_NAME}</strong>
+            <small>{BRAND_TAGLINE}</small>
+          </span>
         </Link>
         <div className="auth-intro__content">
           <p className="eyebrow eyebrow--light">SMART INSOLE COMPANION</p>
@@ -67,7 +73,30 @@ export function SigninPage() {
             차분하게 살펴보세요.
           </h1>
           <p>양발 압력과 보행 패턴을 한눈에 확인하고, 다음 운동을 준비할 수 있습니다.</p>
+          <ul className="auth-intro__features">
+            <li>
+              <span aria-hidden="true" className="auth-intro__feature-icon">
+                <Icon name="activity" />
+              </span>
+              <span>양발 실시간 히트맵과 데이터 품질</span>
+            </li>
+            <li>
+              <span aria-hidden="true" className="auth-intro__feature-icon">
+                <Icon name="chart" />
+              </span>
+              <span>규칙 기반 관찰 패턴과 측정 기록</span>
+            </li>
+            <li>
+              <span aria-hidden="true" className="auth-intro__feature-icon">
+                <Icon name="guide" />
+              </span>
+              <span>패턴에 연결된 운동 가이드</span>
+            </li>
+          </ul>
         </div>
+        <p className="auth-intro__note">
+          <Icon name="shield" />본 서비스는 의료 진단을 제공하지 않습니다.
+        </p>
         <div className="auth-intro__footprint" aria-hidden="true">
           <span />
           <span />
@@ -79,6 +108,15 @@ export function SigninPage() {
 
       <section className="auth-form-panel" aria-labelledby="signin-title">
         <div className="auth-form-card">
+          <div aria-hidden="true" className="auth-form-card__brand">
+            <span className="brand__mark">
+              <Icon name="foot" />
+            </span>
+            <span className="brand__text">
+              <strong>{BRAND_NAME}</strong>
+              <small>{BRAND_TAGLINE}</small>
+            </span>
+          </div>
           <p className="eyebrow">다시 만나 반가워요</p>
           <h2 id="signin-title">로그인</h2>
           <p className="muted">측정 기록과 운동 가이드를 이어서 확인하세요.</p>

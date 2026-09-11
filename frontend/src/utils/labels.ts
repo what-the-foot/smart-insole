@@ -3,6 +3,7 @@ import type {
   DeviceResponse,
   DeviceStatus,
   MeasurementStatus,
+  MovementReferenceMethod,
   ObservationLevel,
   ObservationPatternCode,
   QualityLevel,
@@ -116,6 +117,40 @@ export const resultTerms = {
   estimatedCop: '추정 압력중심',
   totalSignal: '총 신호',
 } as const;
+
+// 계약 1.3.0 / rule-v1.4.0 정강이 IMU 움직임 용어(DEC-036). IMU 보드는 인솔이 아니라 외측 발목/정강이에
+// 장착되므로 정강이 분절의 운동만 표시하며 발 관절 각도를 말하지 않는다. 기능 검증용 값이며
+// 참고 범위·판정 문구를 붙이지 않는다(회귀 테스트: MovementCard.test.tsx).
+export const movementTerms = {
+  cardTitle: '정강이 움직임(기능 검증용)',
+  badge: '정강이 IMU',
+  frontalTilt: '정강이 좌우 기울기(중간 입각기)',
+  sagittalRange: '입각기 정강이 전후 회전 범위',
+  transverseRange: '입각기 정강이 수평 회전 범위',
+  swingPeakAngularVelocity: '유각기 최대 각속도',
+  windowCount: 'IMU 사용 걸음',
+  imuCoverage: 'IMU 프레임 비율',
+  referenceMethod: '기준 자세',
+  frontalTiltSign: '좌우 기울기 부호: + 바깥쪽(외측), − 안쪽(내측)',
+} as const;
+
+export const referenceMethodLabels: Record<MovementReferenceMethod, string> = {
+  QUIET_STANDING: '정지 자세 기준',
+  FIRST_STANCE: '첫 입각기 기준',
+};
+
+export const REFERENCE_METHOD_UNAVAILABLE = '기준 자세 미확보';
+
+export const MOVEMENT_UNAVAILABLE =
+  '이 세션에는 IMU 데이터가 없어 움직임 분석을 제공하지 않습니다.';
+
+// left/right가 null인 경우(imuCoverage < 0.5 또는 그 발의 기준 자세 미확보) 발 열에 표시한다.
+// 축 정렬 실패·유각기 없음은 null이 아니라 windowCount 0으로 오므로 지표별 '제공 안 됨'으로 표시된다.
+export const MOVEMENT_FOOT_UNAVAILABLE =
+  'IMU 프레임 비율이 낮거나 기준 자세를 잡지 못해 이 발의 값을 제공하지 않습니다.';
+
+export const MOVEMENT_DISCLAIMER =
+  '정강이에 장착한 IMU 기준 값이며 발 자체의 내번·외번이나 진행 각도가 아닙니다. 실측 검증 전 기능 검증용 값입니다.';
 
 export const qualityFlagLabel = (flag: string): string => {
   const labels: Record<string, string> = {

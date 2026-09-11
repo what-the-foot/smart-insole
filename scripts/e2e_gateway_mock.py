@@ -24,7 +24,7 @@ Pass criteria (defaults, all overridable):
   - backend frame count (from the realtime snapshot lastSequence per foot, sequences start at 0
     after START_AND_SYNC) matches the gateway accepted count within --frame-tolerance
   - replay pass (if requested) reports >= 3 duplicates and the backend cursor does not move
-  - result COMPLETED with algorithmVersion rule-v1.2.0 and sourceType SIMULATED
+  - result COMPLETED with algorithmVersion rule-v1.4.0 and sourceType SIMULATED
 
 The gateway environment variable names follow the gateway's settings.py; override any of them with
 --gateway-env KEY=VALUE. Credentials are never printed.
@@ -67,7 +67,7 @@ from e2e_smoke import (
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPOSITORY_ROOT = SCRIPT_DIR.parent
 LAYOUT_VERSION = "layout-s01s08-v1"
-ALGORITHM_VERSION = "rule-v1.2.0"
+ALGORITHM_VERSION = "rule-v1.4.0"
 DEFAULT_GATEWAY_ENV = {
     "SMART_INSOLE_BACKEND_ENABLED": "true",
     "SMART_INSOLE_BACKEND_CONTRACT_PROFILE": "openapi-1.1",
@@ -429,10 +429,10 @@ def main() -> int:
         if result_body is None:
             raise RuntimeError("result did not complete in time")
         if result_body.get("status") != "COMPLETED" or result_body.get("algorithmVersion") != ALGORITHM_VERSION:
-            raise RuntimeError("result is not a COMPLETED rule-v1.2.0 result")
+            raise RuntimeError(f"result is not a COMPLETED {ALGORITHM_VERSION} result")
         summary = result_body.get("observationSummary")
         if not isinstance(summary, list) or len(summary) != 6:
-            raise RuntimeError("rule-v1.2.0 result lacks the six-entry observationSummary")
+            raise RuntimeError(f"{ALGORITHM_VERSION} result lacks the six-entry observationSummary")
         final_session = checked(call(args, "GET", f"/api/v1/measurement-sessions/{session_id}",
                                      headers=bearer(token)), {200}, "final session")
         if final_session.get("sourceType") != "SIMULATED" or final_session.get("status") != "COMPLETED":
